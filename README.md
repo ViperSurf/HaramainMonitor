@@ -219,3 +219,13 @@ hard-left balance silences the right channel; mute is exact zero.
   Bluetooth routing is unchanged. (Custom presets stay a single slot by
   design — between it and the Auto preset, named libraries would add
   management clutter without new capability.)
+
+## v1.4 — Teach-it-once mic names
+
+Android exposes one logical entry per (physical mic × source profile) and
+cannot say which entries share a mic — on the reference phone, 2 entries are
+the bottom mic and 3 are the back mic. Routing gains **Name & organize
+mics**: every input entry can be renamed (persisted by device id) or hidden
+from the picker. A Select button routes an entry live so a tap test against
+the input meter identifies it. The currently selected entry is never hidden
+out from under an active route.

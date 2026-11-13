@@ -37,6 +37,60 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.edit { it[EXPORT_FOLDER] = uri }
     }
 
+    // ---- user-taught mic names ("teach it once") ----
+    // Android cannot say which physical mic a logical entry belongs to, so
+    // the user names entries once; persisted by AudioDeviceInfo id.
+
+    /** deviceId -> custom label. Stored as "id=label;id=label" (%-escaped). */
+    val micLabels: Flow<Map<Int, String>> =
+        context.settingsDataStore.data.map { prefs -> decodeLabels(prefs[MIC_LABELS] ?: "") }
+
+    val hiddenMicIds: Flow<Set<Int>> =
+        context.settingsDataStore.data.map { prefs ->
+            (prefs[HIDDEN_MICS] ?: "").split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()
+        }
+
+    suspend fun setMicLabel(deviceId: Int, label: String?) {
+        context.settingsDataStore.edit { prefs ->
+            val map = decodeLabels(prefs[MIC_LABELS] ?: "").toMutableMap()
+            if (label.isNullOrBlank()) map.remove(deviceId) else map[deviceId] = label.trim()
+            prefs[MIC_LABELS] = encodeLabels(map)
+        }
+    }
+
+    suspend fun setMicHidden(deviceId: Int, hidden: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            val ids = (prefs[HIDDEN_MICS] ?: "").split(",")
+                .mapNotNull { it.trim().toIntOrNull() }.toMutableSet()
+            if (hidden) ids += deviceId else ids -= deviceId
+            prefs[HIDDEN_MICS] = ids.joinToString(",")
+        }
+    }
+
+    suspend fun clearMicTeaching() {
+        context.settingsDataStore.edit {
+            it.remove(MIC_LABELS)
+            it.remove(HIDDEN_MICS)
+        }
+    }
+
+    private fun decodeLabels(raw: String): Map<Int, String> =
+        raw.split(";").mapNotNull { entry ->
+            val eq = entry.indexOf('=')
+            if (eq <= 0) return@mapNotNull null
+            val id = entry.substring(0, eq).toIntOrNull() ?: return@mapNotNull null
+            id to unescape(entry.substring(eq + 1))
+        }.toMap()
+
+    private fun encodeLabels(map: Map<Int, String>): String =
+        map.entries.joinToString(";") { (id, label) -> "$id=${escape(label)}" }
+
+    private fun escape(s: String): String =
+        s.replace("%", "%25").replace(";", "%3B").replace("=", "%3D")
+
+    private fun unescape(s: String): String =
+        s.replace("%3D", "=").replace("%3B", ";").replace("%25", "%")
+
     suspend fun setTheme(mode: ThemeMode) {
         context.settingsDataStore.edit { it[THEME] = mode.name }
     }
@@ -76,5 +130,7 @@ class SettingsStore(private val context: Context) {
         val RESUME = booleanPreferencesKey("resume_on_launch")
         val WAS_RUNNING = booleanPreferencesKey("was_running")
         val EXPORT_FOLDER = stringPreferencesKey("export_folder_uri")
+        val MIC_LABELS = stringPreferencesKey("mic_labels")
+        val HIDDEN_MICS = stringPreferencesKey("hidden_mic_ids")
     }
 }

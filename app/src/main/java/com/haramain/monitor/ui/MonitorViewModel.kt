@@ -104,6 +104,32 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
 
     val inputs: StateFlow<List<RouteDevice>> = router.inputs
     val outputs: StateFlow<List<RouteDevice>> = router.outputs
+
+    // ---- user-taught mic names / hiding ----
+    val micLabels: StateFlow<Map<Int, String>> = settings.micLabels
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+    val hiddenMicIds: StateFlow<Set<Int>> = settings.hiddenMicIds
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    /** What the input picker shows: custom labels applied, hidden entries
+     *  removed — except the currently selected one, which is never hidden
+     *  out from under an active route. */
+    val displayInputs: StateFlow<List<RouteDevice>> = kotlinx.coroutines.flow.combine(
+        router.inputs, micLabels, hiddenMicIds, router.selectedInputId,
+    ) { devices, labels, hidden, selectedId ->
+        devices.mapNotNull { device ->
+            if (device.id in hidden && device.id != selectedId) null
+            else labels[device.id]?.let { device.copy(name = it) } ?: device
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun setMicLabel(deviceId: Int, label: String?) =
+        viewModelScope.launch { settings.setMicLabel(deviceId, label) }
+
+    fun setMicHidden(deviceId: Int, hidden: Boolean) =
+        viewModelScope.launch { settings.setMicHidden(deviceId, hidden) }
+
+    fun clearMicTeaching() = viewModelScope.launch { settings.clearMicTeaching() }
     val selectedInputId: StateFlow<Int> = router.selectedInputId
     val selectedOutputId: StateFlow<Int> = router.selectedOutputId
 

@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -126,6 +129,8 @@ fun MonitorScreen(
     var showUnlockDialog by remember { mutableStateOf(false) }
     var showSetPinDialog by remember { mutableStateOf(false) }
     var showAutoDialog by remember { mutableStateOf(false) }
+    var showMicManager by remember { mutableStateOf(false) }
+    val displayInputs by viewModel.displayInputs.collectAsState()
     val hasAuto by viewModel.hasAuto.collectAsState()
     val autoPreset by viewModel.autoPreset.collectAsState()
     val exportFolderUri by viewModel.exportFolderUri.collectAsState()
@@ -203,11 +208,16 @@ fun MonitorScreen(
             DevicePicker(
                 label = "Input Mic",
                 icon = Icons.Filled.Mic,
-                devices = inputs,
+                devices = displayInputs,
                 selectedId = selIn,
                 onSelect = viewModel::selectInput,
                 enabled = controlsEnabled,
             )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { showMicManager = true }, enabled = controlsEnabled) {
+                Icon(Icons.Filled.Tune, contentDescription = null)
+                Text("Name & organize mics", modifier = Modifier.padding(start = 6.dp))
+            }
             Spacer(Modifier.height(8.dp))
             DevicePicker(
                 label = "Output",
@@ -614,6 +624,14 @@ fun MonitorScreen(
         Spacer(Modifier.height(12.dp))
     }
 
+    if (showMicManager) {
+        MicManagerDialog(
+            viewModel = viewModel,
+            controlsEnabled = controlsEnabled,
+            onDismiss = { showMicManager = false },
+        )
+    }
+
     if (showAutoDialog) {
         AutoSetupDialog(
             viewModel = viewModel,
@@ -953,6 +971,120 @@ private fun AutoSetupDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(if (stage == 4) "Discard" else "Cancel") }
+        },
+    )
+}
+
+/**
+ * "Teach it once" mic manager: Android can't say which physical mic a
+ * logical entry belongs to, so the user names entries (persisted by device
+ * id) and hides useless duplicates. Select routes an entry live so, while
+ * monitoring, tapping near a mic identifies it on the input meter.
+ */
+@Composable
+private fun MicManagerDialog(
+    viewModel: MonitorViewModel,
+    controlsEnabled: Boolean,
+    onDismiss: () -> Unit,
+) {
+    val rawInputs by viewModel.inputs.collectAsState()
+    val storedLabels by viewModel.micLabels.collectAsState()
+    val storedHidden by viewModel.hiddenMicIds.collectAsState()
+    val selectedId by viewModel.selectedInputId.collectAsState()
+
+    var labelDrafts by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
+    var hiddenDrafts by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var initialized by remember { mutableStateOf(false) }
+    LaunchedEffect(rawInputs) {
+        if (!initialized && rawInputs.isNotEmpty()) {
+            labelDrafts = storedLabels
+            hiddenDrafts = storedHidden
+            initialized = true
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Name & organize mics") },
+        text = {
+            Column {
+                Text(
+                    "One physical mic can appear several times (different Android source profiles). " +
+                        "Start monitoring, tap Select on an entry, then tap near a mic — the input meter shows which one it is. " +
+                        "Name it, and hide the duplicates you don't need.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                LazyColumn(Modifier.heightIn(max = 380.dp)) {
+                    items(rawInputs, key = { it.id }) { device ->
+                        Column(Modifier.padding(vertical = 6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        "${device.kindLabel} — ${device.name}",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    if (device.id == selectedId) {
+                                        Text(
+                                            "Currently selected",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
+                                TextButton(
+                                    onClick = { viewModel.selectInput(device.id) },
+                                    enabled = controlsEnabled,
+                                ) { Text("Select") }
+                            }
+                            OutlinedTextField(
+                                value = labelDrafts[device.id] ?: "",
+                                onValueChange = { labelDrafts = labelDrafts + (device.id to it) },
+                                label = { Text("Custom name (blank = original)") },
+                                placeholder = { Text(device.name) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("Hide from picker", style = MaterialTheme.typography.bodyMedium)
+                                Switch(
+                                    checked = device.id in hiddenDrafts,
+                                    onCheckedChange = { on ->
+                                        hiddenDrafts = if (on) hiddenDrafts + device.id else hiddenDrafts - device.id
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+                TextButton(onClick = {
+                    viewModel.clearMicTeaching()
+                    labelDrafts = emptyMap()
+                    hiddenDrafts = emptySet()
+                }) { Text("Reset all names & hidden") }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                rawInputs.forEach { device ->
+                    viewModel.setMicLabel(device.id, labelDrafts[device.id])
+                    viewModel.setMicHidden(device.id, device.id in hiddenDrafts)
+                }
+                onDismiss()
+            }) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         },
     )
 }
