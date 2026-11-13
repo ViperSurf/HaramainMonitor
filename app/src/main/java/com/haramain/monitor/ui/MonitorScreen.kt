@@ -250,7 +250,7 @@ fun MonitorScreen(
         }
 
         // ---------- Routing bar ----------
-        ExpandableSection(title = "Hardware Routing"), expanded = openSections["routing"] == true, onExpandedChange = { viewModel.setSectionOpen("routing", it) }) {
+        ExpandableSection(title = "Hardware Routing", expanded = openSections["routing"] == true, onExpandedChange = { viewModel.setSectionOpen("routing", it) }) {
             DevicePicker(
                 label = "Input Mic",
                 icon = Icons.Filled.Mic,
@@ -408,7 +408,7 @@ fun MonitorScreen(
         }
 
         // ---------- Presets ----------
-        ExpandableSection(title = "Presets"), expanded = openSections["presets"] == true, onExpandedChange = { viewModel.setSectionOpen("presets", it) }) {
+        ExpandableSection(title = "Presets", expanded = openSections["presets"] == true, onExpandedChange = { viewModel.setSectionOpen("presets", it) }) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -448,7 +448,7 @@ fun MonitorScreen(
         }
 
         // ---------- DSP controls ----------
-        ExpandableSection(title = "Vocal Chain"), expanded = openSections["vocal"] == true, onExpandedChange = { viewModel.setSectionOpen("vocal", it) }) {
+        ExpandableSection(title = "Vocal Chain", expanded = openSections["vocal"] == true, onExpandedChange = { viewModel.setSectionOpen("vocal", it) }) {
             Text(
                 "Double-tap any control to reset it to its Haramain (Original) value.",
                 style = MaterialTheme.typography.bodySmall,
@@ -511,7 +511,7 @@ fun MonitorScreen(
             )
         }
 
-        ExpandableSection(title = "Haramain Space"), expanded = openSections["space"] == true, onExpandedChange = { viewModel.setSectionOpen("space", it) }) {
+        ExpandableSection(title = "Haramain Space", expanded = openSections["space"] == true, onExpandedChange = { viewModel.setSectionOpen("space", it) }) {
             PrecisionControl(
                 label = "Reverb Room Size",
                 value = params.roomSizePercent, valueRange = 0f..100f, step = 1f,
@@ -566,7 +566,7 @@ fun MonitorScreen(
         }
 
         // ---------- Safety ----------
-        ExpandableSection(title = "Safety & Limiter"), expanded = openSections["safety"] == true, onExpandedChange = { viewModel.setSectionOpen("safety", it) }) {
+        ExpandableSection(title = "Safety & Limiter", expanded = openSections["safety"] == true, onExpandedChange = { viewModel.setSectionOpen("safety", it) }) {
             ToggleRow(
                 label = "Headphone Safety",
                 checked = params.safetyOn,
@@ -595,7 +595,7 @@ fun MonitorScreen(
         }
 
         // ---------- App settings ----------
-        ExpandableSection(title = "App Settings"), expanded = openSections["appsettings"] == true, onExpandedChange = { viewModel.setSectionOpen("appsettings", it) }) {
+        ExpandableSection(title = "App Settings", expanded = openSections["appsettings"] == true, onExpandedChange = { viewModel.setSectionOpen("appsettings", it) }) {
             Text("Theme", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(6.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

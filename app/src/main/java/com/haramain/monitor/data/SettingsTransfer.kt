@@ -51,7 +51,15 @@ object SettingsTransfer {
     }
 
     /** Applies a previously exported file. Returns false if it isn't one of ours. */
-    suspend fun import(context: Context, json: String): Boolean = try {
+    suspend fun import(context: Context, json: String): Boolean {
+        return try {
+            importInternal(context, json)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private suspend fun importInternal(context: Context, json: String): Boolean {
         val root = JSONObject(json)
         if (root.optString("app") != APP_TAG) return false
         val presets = PresetStore(context)
@@ -88,9 +96,7 @@ object SettingsTransfer {
                 settings.setOpenSections(map)
             }
         }
-        true
-    } catch (_: Exception) {
-        false
+        return true
     }
 
     private fun AudioParams.toJson(): JSONObject {
