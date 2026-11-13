@@ -1,6 +1,8 @@
 package com.haramain.monitor.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -18,6 +20,8 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.HeadsetMic
@@ -53,6 +57,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -151,9 +156,17 @@ fun MonitorScreen(
             Column(Modifier.padding(start = 10.dp)) {
                 Text("Haramain Monitor", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(
-                    if (running) "● LIVE — monitoring" else "Live vocal monitoring • Oboe / AAudio",
+                    when {
+                        running && params.muted -> "🔇 MUTED — tap Unmute to hear yourself"
+                        running -> "● LIVE — monitoring"
+                        else -> "Live vocal monitoring • Oboe / AAudio"
+                    },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (running) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = when {
+                        running && params.muted -> MaterialTheme.colorScheme.error
+                        running -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
         }
@@ -186,9 +199,7 @@ fun MonitorScreen(
         }
 
         // ---------- Routing bar ----------
-        SectionCard {
-            Text("Hardware Routing", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
+        ExpandableSection(title = "Hardware Routing") {
             DevicePicker(
                 label = "Input Mic",
                 icon = Icons.Filled.Mic,
@@ -238,12 +249,50 @@ fun MonitorScreen(
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }
-                OutlinedButton(
-                    onClick = viewModel::toggleMute,
-                    enabled = running,
-                    modifier = Modifier.height(64.dp),
-                ) {
-                    Text(if (params.muted) "Unmute" else "Mute")
+                if (params.muted) {
+                    Button(
+                        onClick = viewModel::toggleMute,
+                        enabled = running,
+                        modifier = Modifier.height(64.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.VolumeOff, contentDescription = null)
+                        Text("UNMUTE", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = viewModel::toggleMute,
+                        enabled = running,
+                        modifier = Modifier.height(64.dp),
+                    ) {
+                        Text("Mute")
+                    }
+                }
+            }
+            if (params.muted && running) {
+                Spacer(Modifier.height(10.dp))
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.error)) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.VolumeOff, contentDescription = null, tint = MaterialTheme.colorScheme.onError)
+                            Text(
+                                "MUTED — you can't hear yourself",
+                                color = MaterialTheme.colorScheme.onError,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                        TextButton(onClick = viewModel::toggleMute) {
+                            Text("Unmute", color = MaterialTheme.colorScheme.onError, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -263,56 +312,50 @@ fun MonitorScreen(
         }
 
         // ---------- Recording ----------
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text("Recording", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(
-                        when {
-                            isRecording -> {
-                                val secs = ((nowMs - recordingStartedAt) / 1000).coerceAtLeast(0)
-                                String.format(Locale.US, "● REC %d:%02d — saving WAV", secs / 60, secs % 60)
-                            }
-                            running -> "Tap Rec to capture the processed audio (WAV)"
-                            else -> "Start monitoring to record"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+        ExpandableSection(
+            title = "Recording",
+            headerBadge = if (isRecording) "● REC" else null,
+        ) {
+            Text(
+                when {
+                    isRecording -> {
+                        val secs = ((nowMs - recordingStartedAt) / 1000).coerceAtLeast(0)
+                        String.format(Locale.US, "● REC %d:%02d — saving WAV", secs / 60, secs % 60)
+                    }
+                    running -> "Tap Rec to capture the processed audio (WAV)"
+                    else -> "Start monitoring to record"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { viewModel.toggleRecording(context) },
+                    enabled = running,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
+                    ),
+                ) {
+                    Icon(Icons.Filled.FiberManualRecord, contentDescription = null)
+                    Text(if (isRecording) "Stop" else "Rec", modifier = Modifier.padding(start = 6.dp))
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { viewModel.toggleRecording(context) },
-                        enabled = running,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
-                        ),
-                    ) {
-                        Icon(Icons.Filled.FiberManualRecord, contentDescription = null)
-                        Text(if (isRecording) "Stop" else "Rec", modifier = Modifier.padding(start = 6.dp))
-                    }
-                    OutlinedButton(onClick = {
-                        context.startActivity(Intent(context, RecordingsActivity::class.java))
-                    }) {
-                        Icon(Icons.Filled.LibraryMusic, contentDescription = null)
-                        Text("Library", modifier = Modifier.padding(start = 6.dp))
-                    }
+                OutlinedButton(onClick = {
+                    context.startActivity(Intent(context, RecordingsActivity::class.java))
+                }) {
+                    Icon(Icons.Filled.LibraryMusic, contentDescription = null)
+                    Text("Library", modifier = Modifier.padding(start = 6.dp))
                 }
             }
         }
 
         // ---------- Presets ----------
-        SectionCard {
+        ExpandableSection(title = "Presets") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Presets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { showAutoDialog = true }, enabled = controlsEnabled) {
                         Icon(Icons.Filled.Tune, contentDescription = null)
@@ -347,8 +390,7 @@ fun MonitorScreen(
         }
 
         // ---------- DSP controls ----------
-        SectionCard {
-            Text("Vocal Chain", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        ExpandableSection(title = "Vocal Chain") {
             Text(
                 "Double-tap any control to reset it to its Haramain (Original) value.",
                 style = MaterialTheme.typography.bodySmall,
@@ -411,8 +453,7 @@ fun MonitorScreen(
             )
         }
 
-        SectionCard {
-            Text("Haramain Space", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        ExpandableSection(title = "Haramain Space") {
             PrecisionControl(
                 label = "Reverb Room Size",
                 value = params.roomSizePercent, valueRange = 0f..100f, step = 1f,
@@ -467,7 +508,7 @@ fun MonitorScreen(
         }
 
         // ---------- Safety ----------
-        SectionCard {
+        ExpandableSection(title = "Safety & Limiter") {
             ToggleRow(
                 label = "Headphone Safety",
                 checked = params.safetyOn,
@@ -496,9 +537,7 @@ fun MonitorScreen(
         }
 
         // ---------- App settings ----------
-        SectionCard {
-            Text("App Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
+        ExpandableSection(title = "App Settings") {
             Text("Theme", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(6.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -640,6 +679,54 @@ fun MonitorScreen(
                 TextButton(onClick = { showSetPinDialog = false }) { Text("Cancel") }
             },
         )
+    }
+}
+
+/**
+ * Collapsible section — closed by default so the screen stays calm; tap the
+ * header to open. The master control card above stays a plain SectionCard
+ * (Start/Stop and the meters are always visible).
+ */
+@Composable
+private fun ExpandableSection(
+    title: String,
+    headerBadge: String? = null,
+    content: @Composable () -> Unit,
+) {
+    var expanded by rememberSaveable(title) { mutableStateOf(false) }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (headerBadge != null) {
+                        Text(
+                            headerBadge,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                    }
+                    Icon(
+                        if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                    )
+                }
+            }
+            AnimatedVisibility(visible = expanded) {
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) { content() }
+            }
+        }
     }
 }
 

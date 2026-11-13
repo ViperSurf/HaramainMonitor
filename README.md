@@ -202,3 +202,20 @@ hard-left balance silences the right channel; mute is exact zero.
   (MediaStore, Android 10+), and App Settings gains a **Recording folder**
   picker (SAF) — finished recordings are automatically copied to the folder
   you choose, which can be a Downloads or Google Drive folder.
+
+## v1.3 — Calmer UI, honest mic labels
+
+- **Collapsible sections:** Routing, Recording, Presets, Vocal Chain,
+  Haramain Space, Safety and App Settings now start closed and open on tap,
+  so the first screen is just Start/Stop, Mute and the meters. The Recording
+  header still shows a red ● REC badge while a recording is running.
+- **Mute is unmissable:** while muted, the header reads "🔇 MUTED", a red
+  banner sits above the meters with its own Unmute button, and the Mute
+  button itself turns into a solid red UNMUTE.
+- **Built-in mic labels fixed:** Android does not tell apps which physical
+  mic is which — the old name heuristic labelled one phone's *bottom* mic
+  "Back Mic". Built-ins are now all "Built-in Mic", with identical names
+  numbered ("Microphone (2)") so each stays individually selectable. USB and
+  Bluetooth routing is unchanged. (Custom presets stay a single slot by
+  design — between it and the Auto preset, named libraries would add
+  management clutter without new capability.)

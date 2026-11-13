@@ -11,10 +11,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** Friendly buckets the UI routes by, mapped from raw AudioDeviceInfo types. */
+/** Friendly buckets the UI routes by, mapped from raw AudioDeviceInfo types.
+ *  NOTE: built-in mics are deliberately NOT labelled by position. Android
+ *  gives apps no reliable way to tell which physical hole a built-in mic
+ *  sits behind (field-verified: a name heuristic confidently labelled the
+ *  bottom mic "Back Mic" on a real phone). All built-ins share one kind and
+ *  are told apart by a number suffix when names collide. */
 enum class InputKind(val label: String) {
-    BOTTOM_MIC("Bottom Mic"),
-    BACK_MIC("Back Mic"),
+    BUILTIN("Built-in Mic"),
     WIRED_HEADSET("Wired Headset Mic"),
     USB("USB Mic / DAC"),
     BLUETOOTH("Bluetooth Mic"),
@@ -99,11 +103,26 @@ class AudioRouter(context: Context) {
             .map { it.toRouteDevice(isSource = true) }
             .distinctBy { it.id }
             .sortedBy { it.kindLabel }
+            .disambiguated()
         _outputs.value = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             .filter { it.isSink }
             .map { it.toRouteDevice(isSource = false) }
             .distinctBy { it.id }
             .sortedBy { it.kindLabel }
+            .disambiguated()
+    }
+
+    /** Phones often expose several devices with identical names (e.g. three
+     *  "Microphone" built-ins) — suffix duplicates so each stays selectable
+     *  and identifiable: "Microphone", "Microphone (2)", "Microphone (3)". */
+    private fun List<RouteDevice>.disambiguated(): List<RouteDevice> {
+        val seen = mutableMapOf<String, Int>()
+        return map { device ->
+            val key = device.kindLabel + "|" + device.name
+            val n = (seen[key] ?: 0) + 1
+            seen[key] = n
+            if (n == 1) device else device.copy(name = "${device.name} ($n)")
+        }
     }
 
     fun selectInput(deviceId: Int) {
@@ -165,7 +184,7 @@ class AudioRouter(context: Context) {
                 name = product.ifEmpty { kind.label },
                 kindLabel = kind.label,
                 isSource = true,
-                isInternal = kind == InputKind.BOTTOM_MIC || kind == InputKind.BACK_MIC,
+                isInternal = kind == InputKind.BUILTIN,
                 rawType = type,
             )
         } else {
@@ -182,15 +201,7 @@ class AudioRouter(context: Context) {
     }
 
     private fun AudioDeviceInfo.inputKind(): InputKind = when (type) {
-        AudioDeviceInfo.TYPE_BUILTIN_MIC -> {
-            // Android exposes several built-in mics; the secondary one is the
-            // rear/camera mic and is identifiable by its product name/address
-            // on most devices ("back", "secondary", "camcorder").
-            val hint = (productName?.toString() ?: "") + (address ?: "")
-            if (hint.contains("back", true) || hint.contains("secondary", true) ||
-                hint.contains("cam", true)
-            ) InputKind.BACK_MIC else InputKind.BOTTOM_MIC
-        }
+        AudioDeviceInfo.TYPE_BUILTIN_MIC -> InputKind.BUILTIN
         AudioDeviceInfo.TYPE_WIRED_HEADSET -> InputKind.WIRED_HEADSET
         AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_HEADSET -> InputKind.USB
         AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> InputKind.BLUETOOTH
