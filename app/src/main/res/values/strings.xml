@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Haramain Monitor</string>
+    <string name="notification_channel_name">Live Monitoring</string>
+    <string name="notification_channel_desc">Shown while live microphone monitoring is running</string>
+</resources>

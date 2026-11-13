@@ -1,0 +1,21 @@
+# Gradle / Android build output
+.gradle/
+build/
+*/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# NOTE: keystore/debug.keystore is intentionally committed — it is a
+# dev-only signing key (password "android") so CI builds share one stable
+# signature and updates install over the top on the test phone.
+# Never use it for a Play Store release.

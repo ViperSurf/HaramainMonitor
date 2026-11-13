@@ -1,0 +1,78 @@
+package com.haramain.monitor.audio
+
+/** Kotlin face of the C++ Oboe engine. One instance for the whole app —
+ *  the service owns start/stop, the ViewModel owns parameters. */
+object NativeAudioEngine {
+
+    init {
+        System.loadLibrary("haramain_audio")
+    }
+
+    private var handle: Long = 0L
+
+    fun create() {
+        if (handle == 0L) handle = nativeCreate()
+    }
+
+    fun destroy() {
+        if (handle != 0L) {
+            nativeDestroy(handle)
+            handle = 0L
+        }
+    }
+
+    fun start(): Boolean {
+        create()
+        return handle != 0L && nativeStart(handle)
+    }
+
+    fun stop() {
+        if (handle != 0L) nativeStop(handle)
+    }
+
+    fun isRunning(): Boolean = handle != 0L && nativeIsRunning(handle)
+
+    fun applyParams(p: AudioParams, feedbackRisk: Boolean) {
+        if (handle == 0L) return
+        nativeSetParams(
+            handle, p.toFloatArray(),
+            p.noiseSuppressOn, p.safetyOn, feedbackRisk, p.muted,
+        )
+    }
+
+    fun setInputDevice(deviceId: Int) {
+        if (handle != 0L) nativeSetInputDevice(handle, deviceId)
+    }
+
+    fun setOutputDevice(deviceId: Int) {
+        if (handle != 0L) nativeSetOutputDevice(handle, deviceId)
+    }
+
+    fun sampleRate(): Int = if (handle != 0L) nativeGetSampleRate(handle) else 0
+    fun latencyMs(): Float = if (handle != 0L) nativeGetLatencyMs(handle) else 0f
+    fun inputPeakDb(): Float = if (handle != 0L) nativeGetInputPeakDb(handle) else -80f
+    fun outputPeakDb(): Float = if (handle != 0L) nativeGetOutputPeakDb(handle) else -80f
+    fun routeEventCount(): Int = if (handle != 0L) nativeGetRouteEventCount(handle) else 0
+    fun audioSessionId(): Int = if (handle != 0L) nativeGetAudioSessionId(handle) else -1
+    fun xRunCount(): Int = if (handle != 0L) nativeGetXRunCount(handle) else 0
+
+    // ---- JNI (keep in sync with native-lib.cpp) ----
+    private external fun nativeCreate(): Long
+    private external fun nativeDestroy(handle: Long)
+    private external fun nativeStart(handle: Long): Boolean
+    private external fun nativeStop(handle: Long)
+    private external fun nativeIsRunning(handle: Long): Boolean
+    private external fun nativeSetParams(
+        handle: Long, values: FloatArray,
+        suppressOn: Boolean, safetyOn: Boolean, feedbackRisk: Boolean, muted: Boolean,
+    )
+    private external fun nativeSetInputDevice(handle: Long, deviceId: Int)
+    private external fun nativeSetOutputDevice(handle: Long, deviceId: Int)
+    private external fun nativeGetSampleRate(handle: Long): Int
+    private external fun nativeGetLatencyMs(handle: Long): Float
+    private external fun nativeGetInputPeakDb(handle: Long): Float
+    private external fun nativeGetOutputPeakDb(handle: Long): Float
+    private external fun nativeGetRouteEventCount(handle: Long): Int
+    private external fun nativeGetAudioSessionId(handle: Long): Int
+    private external fun nativeGetXRunCount(handle: Long): Int
+}

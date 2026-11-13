@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Crescent + mic mark, brass on transparency (background supplies emerald) -->
+    <path
+        android:fillColor="#D9A441"
+        android:pathData="M54,14 a40,40 0 1,0 26,66 a32,32 0 1,1 -26,-66z" />
+    <path
+        android:fillColor="#0B3D2A"
+        android:pathData="M48,38 a6,10 0 1,0 12,0 l0,14 a6,6 0 0,1 -12,0z" />
+    <path
+        android:strokeColor="#0B3D2A" android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M42,50 a12,12 0 0,0 24,0 M54,62 l0,8" />
+</vector>
