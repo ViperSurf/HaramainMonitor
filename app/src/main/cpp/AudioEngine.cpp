@@ -198,7 +198,9 @@ float AudioEngine::getLatencyMs() const {
 }
 
 int32_t AudioEngine::getAudioSessionId() const {
-    return mInputStream ? mInputStream->getAudioSessionId() : -1;
+    // Oboe 1.9: getSessionId() (AAudio-backed streams return the real
+    // allocated session id; -1/0 means "none" and Kotlin skips effect attach).
+    return mInputStream ? static_cast<int32_t>(mInputStream->getSessionId()) : -1;
 }
 
 int32_t AudioEngine::getXRunCount() const {
