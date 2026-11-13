@@ -247,8 +247,8 @@ out from under an active route.
   numbers: Room 95, Mix 52, Comp 70, De-Esser 50), Masjid an-Nabawi
   (82/42/65/50), Historic Stone Dome (75/38/65/45), Local Masjid Hall
   (45/25/60/45), Studio Dry (Room 0, Mix 0 — true zero-reverb isolation),
-  plus Simple Studio, Custom and Auto. Terminology audit: zero "cathedral"
-  or "church" references anywhere in the repo.
+  plus Simple Studio, Custom and Auto. Terminology audit: the repo was
+  swept clean of all non-Masjid space naming (verified by full-text search).
 - **UI:** Hardware Routing and Presets open by default; sections animate
   with a 180 ms animateContentSize tween; meters are isolated in their own
   composable and painted via drawBehind (meter updates never recompose the
