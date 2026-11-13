@@ -220,7 +220,7 @@ class MicMonitorService : Service() {
                 when {
                     !running -> "Tap to open"
                     muted -> "Muted — tap Mute again to listen"
-                    else -> "Haramain Cathedral • screen-off monitoring active"
+                    else -> "Haramain • screen-off monitoring active"
                 },
             )
             .setContentIntent(openApp)

@@ -18,7 +18,7 @@ public:
             hp2_[ch].set(Biquad::Type::HighPass, sampleRate, 85.0, 0.7071);
             hfSplit_[ch].set(Biquad::Type::HighPass, sampleRate, 6000.0, 0.5);
         }
-        env_.setTimeConstant(sampleRate, 25.0);
+        env_.setTimeConstant(sampleRate, 60.0);   // slow: fast sweeps between words were audible as quality "steps"
     }
 
     inline float process(float x, int ch, float amount01) {

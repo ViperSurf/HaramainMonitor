@@ -22,9 +22,12 @@ public:
         const float band = std::fabs(band_[ch].process(x));
         const float env = (ch == 0) ? bandEnv_.process(band) : bandEnv_.state;
         // Sibilance = band energy disproportionate to the whole signal.
-        const float excess = env - broadbandLevel * 0.7f;
+        // Voiced conservatively (0.85 trigger ratio, ~-7 dB max HF cut): a
+        // hotter trigger was ducking strong vowels on close mics and thinning
+        // the voice intermittently.
+        const float excess = env - broadbandLevel * 0.85f;
         float cut = 0.0f;
-        if (excess > 0.0f) cut = clampf(excess * 6.0f, 0.0f, 1.0f) * amount01 * 0.68f; // ~ up to -10 dB on HF
+        if (excess > 0.0f) cut = clampf(excess * 4.0f, 0.0f, 1.0f) * amount01 * 0.55f;
         const float hf = hfSplit_[ch].process(x);
         const float g = (ch == 0) ? gainSmooth_.process(1.0f - cut) : gainSmooth_.state;
         return x - hf + hf * g;

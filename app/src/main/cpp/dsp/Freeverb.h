@@ -3,7 +3,7 @@
 #include <vector>
 #include <algorithm>
 
-// Stage 7b — Cathedral reverb: Schroeder/Freeverb topology.
+// Stage 7b — Large-space reverb: Schroeder/Freeverb topology.
 // 8 parallel feedback comb filters -> 4 series all-pass filters, per channel,
 // with the classic Freeverb tunings scaled by roomSize. A short pre-delay
 // (12–40 ms, grows with room size) keeps the dry voice upfront and intelligible
@@ -58,7 +58,7 @@ public:
     // inL/inR dry; roomSize01 & wetDry01 from UI; writes wet-mixed outL/outR.
     inline void process(float inL, float inR, float roomSize01, float wet01,
                         float &outL, float &outR) {
-        const float feedback = 0.70f + roomSize01 * 0.26f;         // 0.70..0.96 long cathedral tail
+        const float feedback = 0.70f + roomSize01 * 0.26f;         // 0.70..0.96 long Haramain tail
         const float inputGain = 0.015f * (0.7f + roomSize01 * 0.6f);
         // Pre-delay: 12 ms + roomSize * 28 ms.
         const size_t delaySamples = static_cast<size_t>((0.012 + roomSize01 * 0.028) * sampleRate_);

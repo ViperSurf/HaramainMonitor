@@ -13,7 +13,7 @@
 // The full real-time chain, in the exact signal order from the spec:
 //   1 Mic Boost (soft-knee) -> 2 Static Remover (85 Hz HPF + hiss) ->
 //   3 Noise Gate -> 4 Noise Suppression -> 5 De-Esser -> 6 Compressor ->
-//   7 Haramain EQ + Cathedral Reverb -> 8 Stereo Balance ->
+//   7 Haramain EQ + Reverb -> 8 Stereo Balance ->
 //   9 Headphone-Safety / Brickwall Limiter
 // Allocation-free after prepare(); safe to run in the Oboe callback.
 class DspChain {
@@ -69,7 +69,7 @@ public:
         const float compGain = compressor_.processGain(detector, p.compressorPercent / 100.0f);
         l *= compGain; r *= compGain;
 
-        // --- 7. Haramain EQ + Cathedral Reverb ---
+        // --- 7. Haramain EQ + Reverb ---
         l = eq_.process(l, 0);
         r = eq_.process(r, 1);
         reverb_.process(l, r, p.roomSizePercent / 100.0f, p.wetDryPercent / 100.0f, l, r);

@@ -20,7 +20,7 @@ class PresetStore(private val context: Context) {
         context.dataStore.data.map { prefs -> prefs.readParams(PREFIX_CUSTOM) }
 
     val lastParams: Flow<AudioParams> =
-        context.dataStore.data.map { prefs -> prefs.readParams(PREFIX_LAST) ?: AudioParams.HARAMAIN }
+        context.dataStore.data.map { prefs -> prefs.readParams(PREFIX_LAST) ?: AudioParams.ORIGINAL }
 
     suspend fun saveCustom(params: AudioParams) {
         context.dataStore.edit { it.writeParams(PREFIX_CUSTOM, params) }

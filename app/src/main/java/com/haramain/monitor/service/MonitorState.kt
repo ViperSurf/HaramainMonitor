@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * Everything is in-memory; persistence lives in PresetStore (DataStore).
  */
 object MonitorState {
-    val params = MutableStateFlow(AudioParams.HARAMAIN)
+    val params = MutableStateFlow(AudioParams.ORIGINAL)
     val isRunning = MutableStateFlow(false)
     val inputPeakDb = MutableStateFlow(-80f)
     val outputPeakDb = MutableStateFlow(-80f)

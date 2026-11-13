@@ -1,5 +1,7 @@
 // Host-side sanity test for the Haramain DSP chain (no Android/Oboe needed).
 #include "../dsp/DspChain.h"
+#include "../dsp/NoiseGate.h"
+#include "../dsp/NoiseSuppressor.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -13,7 +15,7 @@ static void check(const char *name, bool ok, double detail) {
 
 int main() {
     const double SR = 48000.0;
-    DspParams haramain;  // defaults = Haramain Cathedral preset
+    DspParams haramain;  // defaults = the user-specified (Original) preset
 
     // 1) Silence in -> (near) silence out, no NaNs, gate stays shut.
     {
@@ -111,6 +113,30 @@ int main() {
         }
         double rmsOutDb = 10.0 * std::log10(sumSq / n + 1e-12);
         check("loud hiss + gate -38 dB -> below -62 dB out", rmsOutDb < -62.0, rmsOutDb);
+    }
+
+    // 8) REGRESSION (user report: intermittent thin "radio quality" on long
+    //    phrases): the suppressor's noise floor must FREEZE during sustained
+    //    speech, not chase the voice. Constant 0.2 level for 3 s at 40% depth
+    //    must keep the gain near unity (old code sank toward ~0.66).
+    {
+        NoiseSuppressor ns; ns.prepare(SR);
+        float g = 1.0f;
+        for (int i = 0; i < 144000; ++i) g = ns.processGain(0.2f, 0.4f);
+        check("suppressor floor frozen during speech", g > 0.9f, g);
+    }
+
+    // 9) REGRESSION (user report: far-mic gate chatter "weird noise"):
+    //    an 80 ms dip mid-phrase must NOT close the gate (150 ms hold),
+    //    but a 400 ms silence must.
+    {
+        NoiseGate gate; gate.prepare(SR);
+        float g = 0;
+        for (int i = 0; i < 24000; ++i) g = gate.processGain(0.1f, -45.0f);   // voice: open
+        for (int i = 0; i < 3840; ++i) g = gate.processGain(0.0005f, -45.0f); // 80 ms dip
+        check("gate holds open through 80 ms dip", g > 0.5f, g);
+        for (int i = 0; i < 38400; ++i) g = gate.processGain(0.0005f, -45.0f); // +800 ms silence (env decay + hold + ramp)
+        check("gate closes after hold expires", g < 0.2f, g);
     }
 
     // 7) Mute -> exact zero.

@@ -42,7 +42,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     val selectedInputId: StateFlow<Int> = router.selectedInputId
     val selectedOutputId: StateFlow<Int> = router.selectedOutputId
 
-    private val _activePreset = MutableStateFlow(PresetKind.HARAMAIN)
+    private val _activePreset = MutableStateFlow(PresetKind.ORIGINAL)   // boots on the user's own settings
     val activePreset: StateFlow<PresetKind> = _activePreset.asStateFlow()
 
     private val _hasCustom = MutableStateFlow(false)
@@ -59,7 +59,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         // Restore last-used parameters once.
         viewModelScope.launch {
             store.lastParams.collect { restored ->
-                if (MonitorState.params.value == AudioParams.HARAMAIN && restored != AudioParams.HARAMAIN) {
+                if (MonitorState.params.value == AudioParams.ORIGINAL && restored != AudioParams.ORIGINAL) {
                     MonitorState.params.value = restored
                     _activePreset.value = detectPreset(restored)
                 }
@@ -96,8 +96,9 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         val current = MonitorState.params.value
         MonitorState.params.value = when (kind) {
             PresetKind.HARAMAIN -> AudioParams.HARAMAIN.copy(muted = current.muted)
-            PresetKind.CHURCH -> AudioParams.CHURCH_HALL.copy(muted = current.muted)
+            PresetKind.NABAWI -> AudioParams.NABAWI.copy(muted = current.muted)
             PresetKind.STUDIO -> AudioParams.STUDIO_DRY.copy(muted = current.muted)
+            PresetKind.ORIGINAL -> AudioParams.ORIGINAL.copy(muted = current.muted)
             PresetKind.CUSTOM -> customPreset.value?.copy(muted = current.muted) ?: current
         }
         _activePreset.value = kind
@@ -130,8 +131,9 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun detectPreset(p: AudioParams): PresetKind = when {
         p.matchesPreset(PresetKind.HARAMAIN) -> PresetKind.HARAMAIN
-        p.matchesPreset(PresetKind.CHURCH) -> PresetKind.CHURCH
+        p.matchesPreset(PresetKind.NABAWI) -> PresetKind.NABAWI
         p.matchesPreset(PresetKind.STUDIO) -> PresetKind.STUDIO
+        p.matchesPreset(PresetKind.ORIGINAL) -> PresetKind.ORIGINAL
         else -> PresetKind.CUSTOM
     }
 

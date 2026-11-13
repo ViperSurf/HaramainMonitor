@@ -1,12 +1,52 @@
 # Haramain Monitor
 
 Ultra-low-latency live microphone monitoring for Android, built for crisp vocal
-recitation. Native Oboe (AAudio) duplex engine, a 9-stage C++ DSP chain voiced
-as the *Haramain Cathedral* preset, explicit hardware routing, and a foreground
-service so monitoring survives the screen turning off.
+recitation. Native Oboe (AAudio) duplex engine, a 9-stage C++ DSP chain,
+explicit hardware routing, and a foreground service so monitoring survives
+the screen turning off.
 
-**Defaults on first launch — Haramain Cathedral:** Room 95% · Mix 52% ·
-Compressor 70% · De-Esser 50% · Gate −45 dB · Safety ON (−3 dBFS ceiling).
+**Defaults on first launch — Haramain (Original), the user's specified
+settings:** Room 95% · Mix 52% · Compressor 70% · De-Esser 50% · Gate −45 dB ·
+Safety ON (−3 dBFS ceiling).
+
+## Presets
+
+| Preset | Room | Mix | Comp | De-Esser | Gate | Character |
+|---|---|---|---|---|---|---|
+| Haramain | 100% | 45% | 65% | 45% | −48 dB | Masjid al-Haram, research-based (below) |
+| Masjid an-Nabawi | 82% | 38% | 58% | 42% | −48 dB | Gentler, sweeter, more intimate |
+| Studio Dry | 12% | 8% | 60% | 35% | −55 dB | Near-dry practice/monitoring |
+| Haramain (Original) | 95% | 52% | 70% | 50% | −45 dB | The user's own specified settings (boot default) |
+| Custom | — | — | — | — | — | Your saved combination (DataStore) |
+
+### Preset research notes
+
+Why "Haramain" is NOT just a name — what the published acoustics say:
+
+- **Masjid al-Haram's raw space rings for almost 6 seconds.** Its long-time
+  head of audio, Ahmad Tekin Topuzdag, describes the Grand Mosque's sound
+  reverberating ~6 s, with strong room resonances at **212 Hz and 320 Hz**
+  (right on Arabic vowel frequencies) that had to be notched out, and a
+  processor chain of **gates, limiters, compressors and reverbs** —
+  the same stage order this app uses. (topuzdag.com/proaudio.htm)
+- **But what worshippers hear is engineered clarity, not raw echo.** A 2025
+  *Sound & Vibration* study of the Grand Mosque measured marble-driven late
+  reflections arriving after 100 ms that form echoes and *decrease*
+  intelligibility, against background noise as high as 90 dB(A) — the whole
+  electro-acoustic design (≈7,000+ speakers with millisecond digital delay
+  alignment) exists to keep the direct voice dominant. Hence the Haramain
+  preset: maximum tail (Room 100%) with a *disciplined* mix (45%, below the
+  Original's 52%). (academia.edu/156990437)
+- **Masjid an-Nabawi is deliberately the gentler of the two.** Its sound was
+  rebuilt after complaints of echo and feedback; accounts of both mosques'
+  systems consistently describe Madinah's as sweeter, softer and more
+  enclosed/intimate than Makkah's — hence a shorter tail (82%) and lower
+  mix (38%). (witnesstv.net, 2026)
+- **Preferred reverb for recitation is moderate.** Worshipper-preference
+  research (Elkhateeb & Eldakdoky, 2022) found desired mid-frequency
+  reverberation for Quran recitation around **1.4–1.8 s** — the presets aim
+  at that *perceived* space, not the raw 6 s architecture.
+  (researchgate.net/publication/369635142)
 
 ## Architecture
 
@@ -44,7 +84,7 @@ Compressor 70% · De-Esser 50% · Gate −45 dB · Safety ON (−3 dBFS ceiling)
    attached to the input session when the device offers them
 5. **De-Esser** — split-band, 5–8 kHz sidechain
 6. **Compressor** — 3 ms attack / 180 ms release, auto makeup gain
-7. **Haramain EQ + Cathedral Reverb** — −1.5 dB low shelf, +3.5 dB presence at
+7. **Haramain EQ + Reverb** — −1.5 dB low shelf, +3.5 dB presence at
    3.4 kHz, +1 dB air; Freeverb (8 combs + 4 allpasses per channel) with
    12–40 ms pre-delay so the dry voice stays upfront
 8. **Stereo Balance** — constant-power pan, L100–Center–R100
@@ -55,6 +95,10 @@ Compressor 70% · De-Esser 50% · Gate −45 dB · Safety ON (−3 dBFS ceiling)
 > Gate tuning note: the gate reads the *boosted* signal, so its threshold must
 > sit above your mic's boosted hiss floor. Typical phone mic: −45 dB default is
 > right. Loud USB hiss (≈ −50 dB RMS): raise the gate toward −38 dB.
+> **Distant mic?** Don't drop the gate to −80 dB (that's gate fully open — all
+> the static returns). The middle ground is −55 to −60 dB plus more Mic Boost.
+> The gate itself now has a 150 ms hold, 6 dB hysteresis and smooth 90 ms
+> closing ramps, so a voice hovering near the threshold no longer chatters.
 
 ## Routing
 

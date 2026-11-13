@@ -3,6 +3,7 @@ package com.haramain.monitor.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -59,7 +60,7 @@ import kotlin.math.roundToInt
  * Main dashboard — dark mode first.
  * Top: hardware routing. Middle: monitor toggle, meters, telemetry.
  * Below: presets, then one PrecisionControl per DSP parameter.
- * Boots on the Haramain Cathedral preset (Room 95, Mix 52, Comp 70, De-Esser 50).
+ * Boots on the user's own Haramain (Original) preset (Room 95, Mix 52, Comp 70, De-Esser 50).
  */
 @Composable
 fun MonitorScreen(
@@ -203,7 +204,7 @@ fun MonitorScreen(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PresetKind.entries.forEach { kind ->
                     FilterChip(
                         selected = preset == kind,
@@ -219,7 +220,7 @@ fun MonitorScreen(
         SectionCard {
             Text("Vocal Chain", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(
-                "Double-tap any control to reset it to its Haramain default.",
+                "Double-tap any control to reset it to its Haramain (Original) value.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

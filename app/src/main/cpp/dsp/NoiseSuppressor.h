@@ -19,9 +19,18 @@ public:
     // Returns the suppression gain to apply this sample.
     inline float processGain(float detectorInput, float amount01) {
         const float level = env_.process(detectorInput);
-        // Track the floor from below: rises very slowly, falls fast toward minima.
-        if (level < noiseEnv_.state) noiseEnv_.state = level;
-        else noiseEnv_.state += 0.00002f * (level - noiseEnv_.state);
+        // Track the floor ONLY while the signal sits near it (pauses).
+        // CRITICAL: while speech is clearly present (level well above the
+        // floor) the floor is FROZEN. An earlier version kept adapting upward
+        // during sustained recitation until the "noise" estimate chased the
+        // voice itself and the suppressor started eating it — the intermittent
+        // thin "radio quality" collapse users hear on long phrases.
+        if (level < noiseEnv_.state) {
+            noiseEnv_.state = level;                                   // fall fast toward minima
+        } else if (level < noiseEnv_.state * 1.6f) {                   // within ~4 dB of floor = a pause
+            noiseEnv_.state += 0.00002f * (level - noiseEnv_.state);   // rise very slowly
+        }
+        // else: speech present — floor frozen.
         const float noise = std::max(noiseEnv_.state, 1e-6f);
         const float sig = std::max(level, 1e-6f);
         const float minGain = 1.0f - amount01 * 0.85f;             // depth: up to -16 dB of background
