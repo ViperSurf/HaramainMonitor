@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.haramain.monitor.audio.AudioParams
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "haramain_presets")
@@ -27,6 +28,21 @@ class PresetStore(private val context: Context) {
 
     suspend fun saveCustom(params: AudioParams) {
         context.dataStore.edit { it.writeParams(PREFIX_CUSTOM, params) }
+    }
+
+    /** (custom, auto, last) snapshot for settings export. */
+    suspend fun snapshot(): Triple<AudioParams?, AudioParams?, AudioParams> = Triple(
+        context.dataStore.data.first().readParams(PREFIX_CUSTOM),
+        context.dataStore.data.first().readParams(PREFIX_AUTO),
+        context.dataStore.data.first().readParams(PREFIX_LAST) ?: AudioParams.ORIGINAL,
+    )
+
+    suspend fun clearCustom() {
+        context.dataStore.edit { it.remove(floatPreferencesKey(PREFIX_CUSTOM + "boost")) }
+    }
+
+    suspend fun clearAuto() {
+        context.dataStore.edit { it.remove(floatPreferencesKey(PREFIX_AUTO + "boost")) }
     }
 
     suspend fun saveAuto(params: AudioParams) {

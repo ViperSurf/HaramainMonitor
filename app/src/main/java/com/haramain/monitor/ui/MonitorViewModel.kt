@@ -17,6 +17,7 @@ import com.haramain.monitor.service.MicMonitorService
 import com.haramain.monitor.service.MonitorState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -113,18 +114,60 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** What the input picker shows: custom labels applied, hidden entries
      *  removed — except the currently selected one, which is never hidden
-     *  out from under an active route. */
+     *  out from under an active route. Labels stored as "group:<Base>" are
+     *  physical-mic assignments: members of a group are numbered live
+     *  ("Bottom Mic 1", "Bottom Mic 2") in device-id order; a group of one
+     *  shows the plain base name. */
     val displayInputs: StateFlow<List<RouteDevice>> = kotlinx.coroutines.flow.combine(
         router.inputs, micLabels, hiddenMicIds, router.selectedInputId,
     ) { devices, labels, hidden, selectedId ->
+        val groupIndex = mutableMapOf<Int, Pair<String, Int>>()
+        val groupSize = mutableMapOf<String, Int>()
+        devices.filter { labels[it.id]?.startsWith(MIC_GROUP_PREFIX) == true }
+            .groupBy { labels[it.id]!!.removePrefix(MIC_GROUP_PREFIX) }
+            .forEach { (base, members) ->
+                val sorted = members.sortedBy { it.id }
+                groupSize[base] = sorted.size
+                sorted.forEachIndexed { i, d -> groupIndex[d.id] = base to (i + 1) }
+            }
         devices.mapNotNull { device ->
-            if (device.id in hidden && device.id != selectedId) null
-            else labels[device.id]?.let { device.copy(name = it) } ?: device
+            if (device.id in hidden && device.id != selectedId) {
+                null
+            } else {
+                val gi = groupIndex[device.id]
+                when {
+                    gi != null -> device.copy(
+                        name = if (groupSize[gi.first]!! > 1) "${gi.first} ${gi.second}" else gi.first,
+                    )
+                    labels[device.id] != null -> device.copy(name = labels[device.id]!!)
+                    else -> device
+                }
+            }
         }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     fun setMicLabel(deviceId: Int, label: String?) =
         viewModelScope.launch { settings.setMicLabel(deviceId, label) }
+
+    // ---- section layout (persisted) ----
+    val openSections: StateFlow<Map<String, Boolean>> = settings.openSections
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    fun setSectionOpen(id: String, open: Boolean) =
+        viewModelScope.launch { settings.setSectionOpen(id, open) }
+
+    // ---- settings export / import ----
+    suspend fun buildExportJson(): String =
+        com.haramain.monitor.data.SettingsTransfer.buildExport(getApplication())
+
+    suspend fun importSettings(json: String): Boolean {
+        val ok = com.haramain.monitor.data.SettingsTransfer.import(getApplication(), json)
+        if (ok) {
+            // Bring the imported last-used parameters live immediately.
+            MonitorState.params.value = store.lastParams.first()
+        }
+        return ok
+    }
 
     fun setMicHidden(deviceId: Int, hidden: Boolean) =
         viewModelScope.launch { settings.setMicHidden(deviceId, hidden) }
@@ -238,3 +281,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         super.onCleared()
     }
 }
+
+/** Stored mic-label prefix marking a physical-mic group assignment
+ *  ("group:Bottom Mic") whose members are auto-numbered in the picker. */
+const val MIC_GROUP_PREFIX = "group:"

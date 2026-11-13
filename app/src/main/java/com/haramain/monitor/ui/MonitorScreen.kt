@@ -60,7 +60,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,8 +76,10 @@ import com.haramain.monitor.audio.RouteDevice
 import com.haramain.monitor.audio.AutoCalibrator
 import com.haramain.monitor.audio.CalStats
 import com.haramain.monitor.data.ThemeMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.haramain.monitor.ui.components.PrecisionControl
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -134,6 +135,51 @@ fun MonitorScreen(
     val hasAuto by viewModel.hasAuto.collectAsState()
     val autoPreset by viewModel.autoPreset.collectAsState()
     val exportFolderUri by viewModel.exportFolderUri.collectAsState()
+    val openSections by viewModel.openSections.collectAsState()
+    var pendingExport by remember { mutableStateOf<String?>(null) }
+    val uiScope = rememberCoroutineScope()
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        val json = pendingExport
+        pendingExport = null
+        if (uri != null && json != null) {
+            uiScope.launch {
+                val ok = withContext(Dispatchers.IO) {
+                    try {
+                        context.contentResolver.openOutputStream(uri)
+                            ?.use { it.write(json.toByteArray()) }
+                        true
+                    } catch (_: Exception) { false }
+                }
+                Toast.makeText(
+                    context,
+                    if (ok) "Settings exported" else "Export failed",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            uiScope.launch {
+                val text = withContext(Dispatchers.IO) {
+                    try {
+                        context.contentResolver.openInputStream(uri)
+                            ?.use { it.readBytes().decodeToString() }
+                    } catch (_: Exception) { null }
+                }
+                val ok = text?.let { viewModel.importSettings(it) } ?: false
+                Toast.makeText(
+                    context,
+                    if (ok) "Settings imported" else "That file isn't a Haramain Monitor settings export",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
+    }
     val folderLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
@@ -204,7 +250,7 @@ fun MonitorScreen(
         }
 
         // ---------- Routing bar ----------
-        ExpandableSection(title = "Hardware Routing") {
+        ExpandableSection(title = "Hardware Routing"), expanded = openSections["routing"] == true, onExpandedChange = { viewModel.setSectionOpen("routing", it) }) {
             DevicePicker(
                 label = "Input Mic",
                 icon = Icons.Filled.Mic,
@@ -325,6 +371,8 @@ fun MonitorScreen(
         ExpandableSection(
             title = "Recording",
             headerBadge = if (isRecording) "● REC" else null,
+            expanded = openSections["recording"] == true,
+            onExpandedChange = { viewModel.setSectionOpen("recording", it) },
         ) {
             Text(
                 when {
@@ -360,7 +408,7 @@ fun MonitorScreen(
         }
 
         // ---------- Presets ----------
-        ExpandableSection(title = "Presets") {
+        ExpandableSection(title = "Presets"), expanded = openSections["presets"] == true, onExpandedChange = { viewModel.setSectionOpen("presets", it) }) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -400,7 +448,7 @@ fun MonitorScreen(
         }
 
         // ---------- DSP controls ----------
-        ExpandableSection(title = "Vocal Chain") {
+        ExpandableSection(title = "Vocal Chain"), expanded = openSections["vocal"] == true, onExpandedChange = { viewModel.setSectionOpen("vocal", it) }) {
             Text(
                 "Double-tap any control to reset it to its Haramain (Original) value.",
                 style = MaterialTheme.typography.bodySmall,
@@ -463,7 +511,7 @@ fun MonitorScreen(
             )
         }
 
-        ExpandableSection(title = "Haramain Space") {
+        ExpandableSection(title = "Haramain Space"), expanded = openSections["space"] == true, onExpandedChange = { viewModel.setSectionOpen("space", it) }) {
             PrecisionControl(
                 label = "Reverb Room Size",
                 value = params.roomSizePercent, valueRange = 0f..100f, step = 1f,
@@ -518,7 +566,7 @@ fun MonitorScreen(
         }
 
         // ---------- Safety ----------
-        ExpandableSection(title = "Safety & Limiter") {
+        ExpandableSection(title = "Safety & Limiter"), expanded = openSections["safety"] == true, onExpandedChange = { viewModel.setSectionOpen("safety", it) }) {
             ToggleRow(
                 label = "Headphone Safety",
                 checked = params.safetyOn,
@@ -547,7 +595,7 @@ fun MonitorScreen(
         }
 
         // ---------- App settings ----------
-        ExpandableSection(title = "App Settings") {
+        ExpandableSection(title = "App Settings"), expanded = openSections["appsettings"] == true, onExpandedChange = { viewModel.setSectionOpen("appsettings", it) }) {
             Text("Theme", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(6.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -606,6 +654,26 @@ fun MonitorScreen(
             Text(
                 "Locking makes every audio control read-only — handy when someone else holds the phone or it's in your pocket. " +
                     "The PIN is optional; without one, unlocking is one tap.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+            Text("Move to another device", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    uiScope.launch {
+                        pendingExport = viewModel.buildExportJson()
+                        exportLauncher.launch("haramain-settings.json")
+                    }
+                }) { Text("Export settings") }
+                OutlinedButton(onClick = {
+                    importLauncher.launch(arrayOf("application/json"))
+                }) { Text("Import settings") }
+            }
+            Text(
+                "Exports presets, mic names, theme and layout. The lock PIN and the recording folder are never exported.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp),
@@ -709,9 +777,10 @@ fun MonitorScreen(
 private fun ExpandableSection(
     title: String,
     headerBadge: String? = null,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     content: @Composable () -> Unit,
 ) {
-    var expanded by rememberSaveable(title) { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -719,7 +788,7 @@ private fun ExpandableSection(
         Column {
             Row(
                 modifier = Modifier.fillMaxWidth()
-                    .clickable { expanded = !expanded }
+                    .clickable { onExpandedChange(!expanded) }
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -1043,8 +1112,33 @@ private fun MicManagerDialog(
                                     enabled = controlsEnabled,
                                 ) { Text("Select") }
                             }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("Bottom Mic", "Back Mic").forEach { base ->
+                                    val tag = MIC_GROUP_PREFIX + base
+                                    FilterChip(
+                                        selected = (labelDrafts[device.id] ?: "") == tag,
+                                        onClick = {
+                                            labelDrafts = if ((labelDrafts[device.id] ?: "") == tag) {
+                                                labelDrafts - device.id
+                                            } else {
+                                                labelDrafts + (device.id to tag)
+                                            }
+                                        },
+                                        label = { Text(base) },
+                                    )
+                                }
+                                if ((labelDrafts[device.id] ?: "").startsWith(MIC_GROUP_PREFIX)) {
+                                    Text(
+                                        "Numbered automatically",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 10.dp),
+                                    )
+                                }
+                            }
                             OutlinedTextField(
-                                value = labelDrafts[device.id] ?: "",
+                                value = (labelDrafts[device.id] ?: "")
+                                    .takeUnless { it.startsWith(MIC_GROUP_PREFIX) } ?: "",
                                 onValueChange = { labelDrafts = labelDrafts + (device.id to it) },
                                 label = { Text("Custom name (blank = original)") },
                                 placeholder = { Text(device.name) },

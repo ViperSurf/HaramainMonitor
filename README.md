@@ -229,3 +229,14 @@ mics**: every input entry can be renamed (persisted by device id) or hidden
 from the picker. A Select button routes an entry live so a tap test against
 the input meter identifies it. The currently selected entry is never hidden
 out from under an active route.
+
+## v1.5 — Group mic labels, remembered sections, settings export
+
+- **Mic groups:** the mic manager gains one-tap **Bottom Mic** / **Back Mic**
+  chips. Entries sharing a physical name are numbered live in the picker
+  (Bottom Mic 1/2, Back Mic 1/2/3); a lone member shows the plain name.
+- **Sections remember:** collapsible section open/closed state is persisted,
+  so the layout survives closing and reopening the app.
+- **Export / Import settings:** one JSON file via the system picker carrying
+  presets, mic names/hidden entries, theme, lock state (never the PIN),
+  resume preference and section layout — move to a new phone in one step.

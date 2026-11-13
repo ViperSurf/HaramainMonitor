@@ -74,6 +74,41 @@ class SettingsStore(private val context: Context) {
         }
     }
 
+    /** Bulk restore (settings import): labels + hidden ids in one edit. */
+    suspend fun restoreTeaching(labels: Map<Int, String>, hidden: Set<Int>) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[MIC_LABELS] = encodeLabels(labels)
+            prefs[HIDDEN_MICS] = hidden.joinToString(",")
+        }
+    }
+
+    // ---- collapsible section state (persisted across app restarts) ----
+
+    val openSections: Flow<Map<String, Boolean>> =
+        context.settingsDataStore.data.map { prefs -> decodeSections(prefs[SECTIONS] ?: "") }
+
+    suspend fun setSectionOpen(id: String, open: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            val map = decodeSections(prefs[SECTIONS] ?: "").toMutableMap()
+            map[id] = open
+            prefs[SECTIONS] = encodeSections(map)
+        }
+    }
+
+    suspend fun setOpenSections(map: Map<String, Boolean>) {
+        context.settingsDataStore.edit { it[SECTIONS] = encodeSections(map) }
+    }
+
+    private fun decodeSections(raw: String): Map<String, Boolean> =
+        raw.split(";").mapNotNull { entry ->
+            val eq = entry.indexOf('=')
+            if (eq <= 0) return@mapNotNull null
+            entry.substring(0, eq) to (entry.substring(eq + 1) == "1")
+        }.toMap()
+
+    private fun encodeSections(map: Map<String, Boolean>): String =
+        map.entries.joinToString(";") { (id, open) -> "$id=${if (open) "1" else "0"}" }
+
     private fun decodeLabels(raw: String): Map<Int, String> =
         raw.split(";").mapNotNull { entry ->
             val eq = entry.indexOf('=')
@@ -132,5 +167,6 @@ class SettingsStore(private val context: Context) {
         val EXPORT_FOLDER = stringPreferencesKey("export_folder_uri")
         val MIC_LABELS = stringPreferencesKey("mic_labels")
         val HIDDEN_MICS = stringPreferencesKey("hidden_mic_ids")
+        val SECTIONS = stringPreferencesKey("open_sections")
     }
 }
