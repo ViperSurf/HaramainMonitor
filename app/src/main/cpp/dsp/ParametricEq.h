@@ -30,13 +30,35 @@ public:
         }
     }
 
-    inline float process(float x, int ch) {
-        return air_[ch].process(presence_[ch].process(low_[ch].process(x)));
+    // 3-band vocal tone sculptor (Warmth 150 Hz shelf / Clarity 3 kHz peak /
+    // Air 10 kHz shelf), each -12..+12 dB, coefficients rebuilt only on change.
+    inline void setTone(float warmthDb, float clarityDb, float airDb) {
+        if (std::fabs(warmthDb - lastWarmth_) < 0.01f &&
+            std::fabs(clarityDb - lastClarity_) < 0.01f &&
+            std::fabs(airDb - lastAir_) < 0.01f) return;
+        lastWarmth_ = warmthDb; lastClarity_ = clarityDb; lastAir_ = airDb;
+        for (int ch = 0; ch < 2; ++ch) {
+            warmth_[ch].set(Biquad::Type::LowShelf, sampleRate_, 150.0, 0.7, warmthDb);
+            clarity_[ch].set(Biquad::Type::Peaking, sampleRate_, 3000.0, 0.9, clarityDb);
+            toneAir_[ch].set(Biquad::Type::HighShelf, sampleRate_, 10000.0, 0.7, airDb);
+        }
     }
-    void reset() { for (int ch = 0; ch < 2; ++ch) { low_[ch].reset(); presence_[ch].reset(); air_[ch].reset(); } }
+
+    inline float process(float x, int ch) {
+        float y = air_[ch].process(presence_[ch].process(low_[ch].process(x)));
+        return toneAir_[ch].process(clarity_[ch].process(warmth_[ch].process(y)));
+    }
+    void reset() {
+        for (int ch = 0; ch < 2; ++ch) {
+            low_[ch].reset(); presence_[ch].reset(); air_[ch].reset();
+            warmth_[ch].reset(); clarity_[ch].reset(); toneAir_[ch].reset();
+        }
+    }
 
 private:
     Biquad low_[2], presence_[2], air_[2];
+    Biquad warmth_[2], clarity_[2], toneAir_[2];
     double sampleRate_ = 48000;
     float lastLowUser_ = 999.0f, lastHighUser_ = 999.0f;
+    float lastWarmth_ = 999.0f, lastClarity_ = 999.0f, lastAir_ = 999.0f;
 };

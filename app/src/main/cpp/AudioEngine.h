@@ -39,7 +39,11 @@ public:
     void adaptBufferIfNeeded();                 // xrun-driven output buffer growth
 
     // Recording tap (post-DSP stereo) -> WAV file on a writer thread.
-    bool startRecording(const std::string &path);
+    bool startRecording(const std::string &path, bool dry = false);
+    void setBufferMode(int32_t bursts);          // user latency preference: 1 / 2 / 4 bursts
+    void setUsageGame(bool game);                // BT low-latency output usage hint
+    void setPitchEnabled(bool on) { mPitchEnabled.store(on); }
+    float getPitchHz() const { return mPitchHz.load(); }
     int64_t stopRecording();                    // returns frames written
     bool isRecording() const { return mRecording.load(); }
 
@@ -68,6 +72,19 @@ private:
     float mRecRing[kRecRingFrames * 2];
     std::atomic<size_t> mRecHead{0}, mRecTail{0};
     std::atomic<bool> mRecording{false};
+    std::atomic<bool> mRecDry{false};
+    std::atomic<int32_t> mUserBursts{1};
+    std::atomic<bool> mUsageGame{false};
+
+    // Pitch detection: raw-input history ring + worker-thread autocorrelation.
+    static constexpr size_t kPitchHist = 8192;   // power of two
+    float mPitchRing[kPitchHist];
+    std::atomic<size_t> mPitchHead{0};
+    std::atomic<bool> mPitchEnabled{false};
+    std::atomic<float> mPitchHz{0.0f};
+    std::atomic<bool> mPitchStop{false};
+    std::thread mPitchThread;
+    void pitchLoop();
     std::thread mRecThread;
     std::string mRecPath;
     std::atomic<int64_t> mRecFramesWritten{0};
@@ -100,8 +117,10 @@ private:
 
     std::atomic<float> aBoost{50.0f}, aStatic{60.0f}, aSuppress{40.0f}, aGate{-45.0f},
             aDeEsser{50.0f}, aComp{70.0f}, aRoom{95.0f}, aMix{52.0f},
-            aBalance{0.0f}, aEqLow{0.0f}, aEqHigh{0.0f}, aMasterDb{0.0f}, aSafetyCeilingDb{-3.0f};
-    std::atomic<bool> aSuppressOn{true}, aSafetyOn{true}, aFeedbackRisk{false}, aMuted{false};
+            aBalance{0.0f}, aEqLow{0.0f}, aEqHigh{0.0f}, aMasterDb{0.0f}, aSafetyCeilingDb{-3.0f},
+            aBtDuck{50.0f}, aWarmth{0.0f}, aClarity{0.0f}, aAir{0.0f};
+    std::atomic<bool> aSuppressOn{true}, aSafetyOn{true}, aFeedbackRisk{false}, aMuted{false},
+            aBtDuckOn{false};
 
     DspChain mChain;
 };

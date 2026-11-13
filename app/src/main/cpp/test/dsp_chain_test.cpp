@@ -169,6 +169,45 @@ int main() {
         check("muted = exact zero", l == 0.0f && r == 0.0f, l);
     }
 
+
+    // 14) BT dry-duck: with the Masjid space up, ducking cuts the direct
+    //     voice hard but the signal (wet room) remains clearly audible.
+    {
+        auto steady = [&](bool duck) {
+            DspChain chain; chain.prepare(SR);
+            DspParams p = haramain;
+            p.btDuckOn = duck; p.btDuckPercent = 100.0f;
+            double sum = 0; int n = 0;
+            for (int i = 0; i < 96000; ++i) {           // 2 s of 300 Hz voice
+                float x = 0.15f * std::sin(2.0 * M_PI * 300.0 * i / SR);
+                float l = x, r = x; chain.processFrame(l, r, p);
+                if (i > 72000) { sum += std::fabs(l); ++n; }   // final 0.5 s
+            }
+            return sum / n;
+        };
+        const double dry = steady(false), ducked = steady(true);
+        check("BT duck lowers monitor level", ducked < dry * 0.75, ducked / dry);
+        check("BT duck keeps the room audible", ducked > dry * 0.15, ducked / dry);
+    }
+
+    // 15) Tone sculptor: Warmth +12 dB lifts a 150 Hz tone substantially.
+    {
+        auto level = [&](float warmth) {
+            DspChain chain; chain.prepare(SR);
+            DspParams p = haramain;
+            p.wetDryPercent = 0.0f; p.roomSizePercent = 0.0f; p.eqWarmthDb = warmth;
+            double sum = 0; int n = 0;
+            for (int i = 0; i < 48000; ++i) {
+                float x = 0.1f * std::sin(2.0 * M_PI * 150.0 * i / SR);
+                float l = x, r = x; chain.processFrame(l, r, p);
+                if (i > 24000) { sum += std::fabs(l); ++n; }
+            }
+            return sum / n;
+        };
+        const double flat = level(0.0f), warm = level(12.0f);
+        check("warmth +12 lifts 150 Hz", warm > flat * 1.7, warm / flat);
+    }
+
     std::printf(failures == 0 ? "\nALL DSP TESTS PASSED\n" : "\n%d FAILURES\n", failures);
     return failures == 0 ? 0 : 1;
 }

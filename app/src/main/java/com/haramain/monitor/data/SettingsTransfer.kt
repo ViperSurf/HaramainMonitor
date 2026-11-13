@@ -38,6 +38,9 @@ object SettingsTransfer {
         settingsJson.put("theme", settings.themeMode.first().name)
         settingsJson.put("locked", settings.settingsLocked.first())
         settingsJson.put("resumeOnLaunch", settings.resumeOnLaunch.first())
+        settingsJson.put("bufferMode", settings.bufferMode.first())
+        settingsJson.put("pitchOn", settings.pitchOn.first())
+        settingsJson.put("recordDry", settings.recordDry.first())
         val labels = JSONObject()
         settings.micLabels.first().forEach { (id, label) -> labels.put(id.toString(), label) }
         settingsJson.put("micLabels", labels)
@@ -80,6 +83,9 @@ object SettingsTransfer {
             }
             if (s.has("locked")) settings.setLocked(s.getBoolean("locked"))
             if (s.has("resumeOnLaunch")) settings.setResume(s.getBoolean("resumeOnLaunch"))
+            if (s.has("bufferMode")) settings.setBufferMode(s.getInt("bufferMode"))
+            if (s.has("pitchOn")) settings.setPitchOn(s.getBoolean("pitchOn"))
+            if (s.has("recordDry")) settings.setRecordDry(s.getBoolean("recordDry"))
             if (s.has("micLabels") || s.has("hiddenMicIds")) {
                 val labels = mutableMapOf<Int, String>()
                 s.optJSONObject("micLabels")?.let { lj ->
@@ -114,6 +120,11 @@ object SettingsTransfer {
         j.put("eqLowGainDb", eqLowGainDb.toDouble())
         j.put("eqHighGainDb", eqHighGainDb.toDouble())
         j.put("masterGainDb", masterGainDb.toDouble())
+        j.put("btDuckPercent", btDuckPercent.toDouble())
+        j.put("btDuckOn", btDuckOn)
+        j.put("eqWarmthDb", eqWarmthDb.toDouble())
+        j.put("eqClarityDb", eqClarityDb.toDouble())
+        j.put("eqAirDb", eqAirDb.toDouble())
         j.put("safetyOn", safetyOn)
         j.put("safetyCeilingDb", safetyCeilingDb.toDouble())
         return j
@@ -139,6 +150,11 @@ object SettingsTransfer {
             eqLowGainDb = f("eqLowGainDb", d.eqLowGainDb),
             eqHighGainDb = f("eqHighGainDb", d.eqHighGainDb),
             masterGainDb = f("masterGainDb", d.masterGainDb),
+            btDuckPercent = f("btDuckPercent", d.btDuckPercent),
+            btDuckOn = b("btDuckOn", d.btDuckOn),
+            eqWarmthDb = f("eqWarmthDb", d.eqWarmthDb),
+            eqClarityDb = f("eqClarityDb", d.eqClarityDb),
+            eqAirDb = f("eqAirDb", d.eqAirDb),
             safetyOn = b("safetyOn", d.safetyOn),
             safetyCeilingDb = f("safetyCeilingDb", d.safetyCeilingDb),
             muted = false,

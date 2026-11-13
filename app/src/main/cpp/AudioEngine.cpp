@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <cstring>
 #include <thread>
+#include <chrono>
+#include <vector>
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "HaramainAudio", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "HaramainAudio", __VA_ARGS__)
@@ -40,7 +42,7 @@ bool AudioEngine::openStreams() {
             ->setSharingMode(oboe::SharingMode::Exclusive)
             ->setFormat(oboe::AudioFormat::Float)
             ->setChannelCount(2)
-            ->setUsage(oboe::Usage::Media)
+            ->setUsage(mUsageGame.load() ? oboe::Usage::Game : oboe::Usage::Media)
             ->setContentType(oboe::ContentType::Speech)
             ->setDeviceId(mOutputDeviceId.load())
             ->setDataCallback(this)
@@ -58,11 +60,12 @@ bool AudioEngine::openStreams() {
 
     const int32_t burst = mOutputStream->getFramesPerBurst();
     mOutputBurst.store(burst);
-    mBufferMultiplier.store(1);
+    // Start at the user's buffer mode (default 1 burst = ultra-low). The
+    // stream stays at the device's NATIVE sample rate (never forced), so
+    // Android keeps the AAudio MMAP / FastMixer path — no OS resampling.
+    mBufferMultiplier.store(mUserBursts.load());
     mLastXRunSeen.store(0);
-    // Minimum-latency start: ONE burst out, two bursts in. The health check
-    // grows the output buffer only if this device actually underruns.
-    mOutputStream->setBufferSizeInFrames(burst * 1);
+    mOutputStream->setBufferSizeInFrames(burst * mUserBursts.load());
     mInputStream->setBufferSizeInFrames(mInputStream->getFramesPerBurst() * 2);
 
     const int32_t sr = mOutputStream->getSampleRate();
@@ -85,6 +88,8 @@ bool AudioEngine::start() {
     if (mInputStream->requestStart() != oboe::Result::OK) { closeStreams(); return false; }
     if (mOutputStream->requestStart() != oboe::Result::OK) { closeStreams(); return false; }
     mRunning.store(true);
+    mPitchStop.store(false);
+    mPitchThread = std::thread([this]() { pitchLoop(); });
     LOGI("Engine started");
     return true;
 }
@@ -92,6 +97,9 @@ bool AudioEngine::start() {
 void AudioEngine::stop() {
     if (mRecording.load()) stopRecording();
     mRunning.store(false);
+    mPitchStop.store(true);
+    if (mPitchThread.joinable()) mPitchThread.join();
+    mPitchHz.store(0.0f);
     closeStreams();
 }
 
@@ -119,6 +127,60 @@ void AudioEngine::setOutputDeviceId(int32_t id) {
     }
 }
 
+void AudioEngine::setBufferMode(int32_t bursts) {
+    const int32_t b = std::max<int32_t>(1, std::min<int32_t>(4, bursts));
+    mUserBursts.store(b);
+    if (mRunning.load() && mOutputStream) {
+        mBufferMultiplier.store(b);
+        mOutputStream->setBufferSizeInFrames(mOutputBurst.load() * b);
+        mLastXRunSeen.store(getXRunCount());   // don't let the grower instantly override the user
+        LOGI("Buffer mode set by user: %d bursts", b);
+    }
+}
+
+void AudioEngine::setUsageGame(bool game) {
+    if (game == mUsageGame.load()) return;
+    mUsageGame.store(game);
+    if (mRunning.load()) {
+        closeStreams();
+        if (!openStreams() || mInputStream->requestStart() != oboe::Result::OK ||
+            mOutputStream->requestStart() != oboe::Result::OK) {
+            LOGE("Re-route (usage) failed"); mRunning.store(false);
+        }
+    }
+}
+
+void AudioEngine::pitchLoop() {
+    std::vector<float> buf(4096);
+    while (!mPitchStop.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(90));
+        if (!mPitchEnabled.load() || !mRunning.load()) { mPitchHz.store(0.0f); continue; }
+        const int32_t sr = mSampleRate.load();
+        if (sr <= 0) continue;
+        const size_t head = mPitchHead.load(std::memory_order_acquire);
+        if (head < buf.size()) continue;
+        for (size_t i = 0; i < buf.size(); ++i)
+            buf[i] = mPitchRing[(head - buf.size() + i) & (kPitchHist - 1)];
+        double energy = 0.0;
+        for (float s : buf) energy += static_cast<double>(s) * s;
+        if (energy / static_cast<double>(buf.size()) < 1e-6) { mPitchHz.store(0.0f); continue; }
+        // Normalized autocorrelation over the vocal range 60..600 Hz.
+        const int minLag = sr / 600, maxLag = sr / 60;
+        double best = 0.0; int bestLag = 0;
+        for (int lag = minLag; lag <= maxLag; ++lag) {
+            double num = 0.0, d1 = 0.0, d2 = 0.0;
+            const int n = static_cast<int>(buf.size()) - lag;
+            for (int i = 0; i < n; i += 2) {
+                const double a = buf[i], b = buf[i + lag];
+                num += a * b; d1 += a * a; d2 += b * b;
+            }
+            const double corr = (d1 > 0 && d2 > 0) ? num / std::sqrt(d1 * d2) : 0.0;
+            if (corr > best) { best = corr; bestLag = lag; }
+        }
+        mPitchHz.store(best > 0.55 && bestLag > 0 ? static_cast<float>(sr) / bestLag : 0.0f);
+    }
+}
+
 void AudioEngine::setParams(const DspParams &p) {
     aBoost.store(p.micBoostPercent); aStatic.store(p.staticRemover);
     aSuppress.store(p.noiseSuppress); aSuppressOn.store(p.noiseSuppressOn);
@@ -129,6 +191,8 @@ void AudioEngine::setParams(const DspParams &p) {
     aMasterDb.store(p.masterGainDb); aSafetyOn.store(p.safetyOn);
     aSafetyCeilingDb.store(p.safetyCeilingDb); aFeedbackRisk.store(p.feedbackRisk);
     aMuted.store(p.muted);
+    aBtDuck.store(p.btDuckPercent); aBtDuckOn.store(p.btDuckOn);
+    aWarmth.store(p.eqWarmthDb); aClarity.store(p.eqClarityDb); aAir.store(p.eqAirDb);
 }
 
 DspParams AudioEngine::snapshotParams() const {
@@ -142,6 +206,8 @@ DspParams AudioEngine::snapshotParams() const {
     p.masterGainDb = aMasterDb.load(); p.safetyOn = aSafetyOn.load();
     p.safetyCeilingDb = aSafetyCeilingDb.load(); p.feedbackRisk = aFeedbackRisk.load();
     p.muted = aMuted.load();
+    p.btDuckPercent = aBtDuck.load(); p.btDuckOn = aBtDuckOn.load();
+    p.eqWarmthDb = aWarmth.load(); p.eqClarityDb = aClarity.load(); p.eqAirDb = aAir.load();
     return p;
 }
 
@@ -185,6 +251,24 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
             mMicRing[(head + i) & (kMicRingSize - 1)] = in[i];
         }
         mMicHead.store(head + toWrite, std::memory_order_release);
+        // Pitch history (raw input) + dry-vocal recording tap.
+        if (mPitchEnabled.load(std::memory_order_relaxed)) {
+            const size_t ph = mPitchHead.load(std::memory_order_relaxed);
+            for (int32_t i = 0; i < numFrames; ++i)
+                mPitchRing[(ph + static_cast<size_t>(i)) & (kPitchHist - 1)] = raw[i];
+            mPitchHead.store(ph + static_cast<size_t>(numFrames), std::memory_order_release);
+        }
+        if (mRecording.load(std::memory_order_relaxed) &&
+            mRecDry.load(std::memory_order_relaxed)) {
+            size_t recHead = mRecHead.load(std::memory_order_relaxed);
+            const size_t recTail = mRecTail.load(std::memory_order_acquire);
+            for (int32_t i = 0; i < numFrames && recHead - recTail < kRecRingFrames; ++i) {
+                mRecRing[(recHead & (kRecRingFrames - 1)) * 2] = raw[i];
+                mRecRing[(recHead & (kRecRingFrames - 1)) * 2 + 1] = raw[i];
+                ++recHead;
+            }
+            mRecHead.store(recHead, std::memory_order_release);
+        }
         return oboe::DataCallbackResult::Continue;
     }
 
@@ -211,7 +295,7 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
         out[i * 2 + 1] = r;
         inPeak = std::max(inPeak, mChain.lastInPeak());
         outPeak = std::max(outPeak, mChain.lastOutPeak());
-        if (recording) {
+        if (recording && !mRecDry.load(std::memory_order_relaxed)) {
             const size_t recTail = mRecTail.load(std::memory_order_acquire);
             if (recHead - recTail < kRecRingFrames) {
                 mRecRing[(recHead & (kRecRingFrames - 1)) * 2] = l;
@@ -221,7 +305,7 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
         }
     }
     mMicTail.store(tail + toRead, std::memory_order_release);
-    if (recording) mRecHead.store(recHead, std::memory_order_release);
+    if (recording && !mRecDry.load(std::memory_order_relaxed)) mRecHead.store(recHead, std::memory_order_release);
 
     if (inPeak > mInPeak.load()) mInPeak.store(inPeak);
     if (outPeak > mOutPeak.load()) mOutPeak.store(outPeak);
@@ -340,8 +424,9 @@ static void writeU16LE(FILE *f, uint16_t v) {
     fwrite(b, 1, 2, f);
 }
 
-bool AudioEngine::startRecording(const std::string &path) {
+bool AudioEngine::startRecording(const std::string &path, bool dry) {
     if (mRecording.load() || !mRunning.load()) return false;
+    mRecDry.store(dry);
     mRecPath = path;
     mRecHead.store(0); mRecTail.store(0);
     mRecFramesWritten.store(0);

@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.haramain.monitor.audio.AudioParams
 import com.haramain.monitor.audio.AudioRouter
+import com.haramain.monitor.audio.isBluetooth
 import com.haramain.monitor.audio.PresetKind
 import com.haramain.monitor.audio.RouteDevice
 import com.haramain.monitor.audio.matchesPreset
@@ -156,6 +157,37 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     fun setSectionOpen(id: String, open: Boolean) =
         viewModelScope.launch { settings.setSectionOpen(id, open) }
 
+    val outputIsBluetooth: StateFlow<Boolean> = kotlinx.coroutines.flow.combine(
+        router.outputs, router.selectedOutputId,
+    ) { outs, id -> outs.firstOrNull { it.id == id }?.isBluetooth == true }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val inputIsBluetooth: StateFlow<Boolean> = kotlinx.coroutines.flow.combine(
+        router.inputs, router.selectedInputId,
+    ) { ins, id -> ins.firstOrNull { it.id == id }?.isBluetooth == true }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Split-path fix: monitor through Bluetooth OUT but record from a
+     *  phone/USB mic, avoiding the 16 kHz Bluetooth call-mode (HFP/SCO). */
+    fun usePhoneOrUsbMic() {
+        val candidates = router.inputs.value.filter { !it.isBluetooth }
+        val pick = candidates.firstOrNull { !it.isInternal } ?: candidates.firstOrNull()
+        pick?.let { selectInput(it.id) }
+    }
+
+    // ---- v2.0 feature preferences ----
+    val bufferMode: StateFlow<Int> = settings.bufferMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 1)
+    val pitchOn: StateFlow<Boolean> = settings.pitchOn
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val recordDry: StateFlow<Boolean> = settings.recordDry
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val pitchHz: StateFlow<Float> = MonitorState.pitchHz
+
+    fun setBufferMode(bursts: Int) = viewModelScope.launch { settings.setBufferMode(bursts) }
+    fun setPitchOn(on: Boolean) = viewModelScope.launch { settings.setPitchOn(on) }
+    fun setRecordDry(dry: Boolean) = viewModelScope.launch { settings.setRecordDry(dry) }
+
     // ---- settings export / import ----
     suspend fun buildExportJson(): String =
         com.haramain.monitor.data.SettingsTransfer.buildExport(getApplication())
@@ -176,7 +208,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     val selectedInputId: StateFlow<Int> = router.selectedInputId
     val selectedOutputId: StateFlow<Int> = router.selectedOutputId
 
-    private val _activePreset = MutableStateFlow(PresetKind.ORIGINAL)   // boots on the user's own settings
+    private val _activePreset = MutableStateFlow(PresetKind.HARAMAIN)   // boots on Masjid al-Haram (the user's own settings)
     val activePreset: StateFlow<PresetKind> = _activePreset.asStateFlow()
 
     private val _hasCustom = MutableStateFlow(false)
@@ -236,7 +268,8 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
             PresetKind.NABAWI -> AudioParams.NABAWI.copy(muted = current.muted)
             PresetKind.STUDIO -> AudioParams.STUDIO_DRY.copy(muted = current.muted)
             PresetKind.SIMPLE -> AudioParams.SIMPLE_STUDIO.copy(muted = current.muted)
-            PresetKind.ORIGINAL -> AudioParams.ORIGINAL.copy(muted = current.muted)
+            PresetKind.STONE_DOME -> AudioParams.STONE_DOME.copy(muted = current.muted)
+            PresetKind.LOCAL_HALL -> AudioParams.LOCAL_HALL.copy(muted = current.muted)
             PresetKind.CUSTOM -> customPreset.value?.copy(muted = current.muted) ?: current
         }
         _activePreset.value = kind
@@ -272,7 +305,8 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         p.matchesPreset(PresetKind.NABAWI) -> PresetKind.NABAWI
         p.matchesPreset(PresetKind.STUDIO) -> PresetKind.STUDIO
         p.matchesPreset(PresetKind.SIMPLE) -> PresetKind.SIMPLE
-        p.matchesPreset(PresetKind.ORIGINAL) -> PresetKind.ORIGINAL
+        p.matchesPreset(PresetKind.STONE_DOME) -> PresetKind.STONE_DOME
+        p.matchesPreset(PresetKind.LOCAL_HALL) -> PresetKind.LOCAL_HALL
         else -> PresetKind.CUSTOM
     }
 

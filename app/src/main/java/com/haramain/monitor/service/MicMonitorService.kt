@@ -19,6 +19,7 @@ import android.os.Environment
 import com.haramain.monitor.MainActivity
 import com.haramain.monitor.R
 import com.haramain.monitor.audio.AudioRouter
+import com.haramain.monitor.audio.isBluetooth
 import com.haramain.monitor.audio.NativeAudioEngine
 import com.haramain.monitor.data.SettingsStore
 import kotlinx.coroutines.flow.first
@@ -55,6 +56,7 @@ class MicMonitorService : Service() {
     private var lastRouteEvents = 0
     private var recoveryAttempts = 0
     private var currentRecFile: File? = null
+    @Volatile private var recordDryCached = false
     private val settings by lazy { SettingsStore(this) }
 
     private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
@@ -121,6 +123,16 @@ class MicMonitorService : Service() {
         scope.launch {
             MonitorState.params.collectLatest { applyParams(); pushForeground() }
         }
+        // v2.0 settings -> native: buffer mode, pitch toggle, BT usage hint.
+        scope.launch { settings.bufferMode.collectLatest { NativeAudioEngine.setBufferMode(it) } }
+        scope.launch { settings.pitchOn.collectLatest { NativeAudioEngine.setPitchEnabled(it) } }
+        scope.launch { settings.recordDry.collectLatest { recordDryCached = it } }
+        scope.launch {
+            router.selectedOutputId.collectLatest { id ->
+                val device = router.outputs.value.firstOrNull { it.id == id }
+                NativeAudioEngine.setUsageGame(device?.isBluetooth == true)
+            }
+        }
         // Telemetry + native route-event watchdog + buffer health + recovery.
         telemetryJob = scope.launch {
             var inPeak = -80f; var outPeak = -80f
@@ -150,6 +162,7 @@ class MicMonitorService : Service() {
                 MonitorState.sampleRate.value = NativeAudioEngine.sampleRate()
                 MonitorState.latencyMs.value = NativeAudioEngine.latencyMs()
                 MonitorState.xRuns.value = NativeAudioEngine.xRunCount()
+                MonitorState.pitchHz.value = NativeAudioEngine.getPitchHz()
                 val events = NativeAudioEngine.routeEventCount()
                 if (events != lastRouteEvents) {
                     lastRouteEvents = events
@@ -172,7 +185,7 @@ class MicMonitorService : Service() {
         val dir = recordingsDir(this)
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val file = File(dir, "Haramain_$stamp.wav")
-        if (NativeAudioEngine.startRecording(file.absolutePath)) {
+        if (NativeAudioEngine.startRecording(file.absolutePath, recordDryCached)) {
             currentRecFile = file
             MonitorState.isRecording.value = true
             MonitorState.recordingStartedAtMs.value = System.currentTimeMillis()

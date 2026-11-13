@@ -57,7 +57,7 @@ public:
 
     // inL/inR dry; roomSize01 & wetDry01 from UI; writes wet-mixed outL/outR.
     inline void process(float inL, float inR, float roomSize01, float wet01,
-                        float &outL, float &outR) {
+                        float &outL, float &outR, float dryScale = 1.0f) {
         const float feedback = 0.70f + roomSize01 * 0.26f;         // 0.70..0.96 long Haramain tail
         const float inputGain = 0.015f * (0.7f + roomSize01 * 0.6f);
         // Pre-delay: 12 ms + roomSize * 28 ms.
@@ -78,7 +78,7 @@ public:
             wetR = allPass_[1][i].process(wetR);
         }
         const float wetGain = wet01 * 0.9f;
-        const float dryGain = 1.0f - wet01 * 0.35f;                // gentle dry duck as mix rises; voice stays upfront
+        const float dryGain = (1.0f - wet01 * 0.35f) * dryScale;   // gentle dry duck as mix rises; dryScale applies BT ducking
         outL = inL * dryGain + wetL * wetGain;
         outR = inR * dryGain + wetR * wetGain;
     }

@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <algorithm>
 #include "AudioEngine.h"
 
 // JNI bridge — thin by design. All state lives in AudioEngine; the handle is
@@ -9,7 +10,8 @@
 //   4 deEsserPercent    5 compressorPercent 6 roomSizePercent 7 wetDryPercent
 //   8 balancePercent    9 masterGainDb     10 safetyCeilingDb
 //   11 eqLowGainDb     12 eqHighGainDb
-// Booleans travel as separate calls to keep this array purely numeric.
+//   13 btDuckPercent   14 eqWarmthDb      15 eqClarityDb    16 eqAirDb
+// Booleans travel as separate args to keep this array purely numeric.
 
 static AudioEngine *fromHandle(jlong handle) {
     return reinterpret_cast<AudioEngine *>(handle);
@@ -48,17 +50,23 @@ JNIEXPORT void JNICALL
 Java_com_haramain_monitor_audio_NativeAudioEngine_nativeSetParams(JNIEnv *env, jobject, jlong handle,
                                                                   jfloatArray values,
                                                                   jboolean suppressOn, jboolean safetyOn,
-                                                                  jboolean feedbackRisk, jboolean muted) {
+                                                                  jboolean feedbackRisk, jboolean muted,
+                                                                  jboolean btDuckOn) {
     auto *e = fromHandle(handle);
     if (!e || !values || env->GetArrayLength(values) < 13) return;
-    jfloat v[13];
-    env->GetFloatArrayRegion(values, 0, 13, v);
+    jfloat v[17] = {};
+    const jsize n = std::min<jsize>(env->GetArrayLength(values), 17);
+    env->GetFloatArrayRegion(values, 0, n, v);
+    if (n < 17) v[13] = 50.0f;   // older 13-float callers: duck amount default
     DspParams p;
     p.micBoostPercent = v[0]; p.staticRemover = v[1]; p.noiseSuppress = v[2];
     p.gateThresholdDb = v[3]; p.deEsserPercent = v[4]; p.compressorPercent = v[5];
     p.roomSizePercent = v[6]; p.wetDryPercent = v[7]; p.balancePercent = v[8];
     p.masterGainDb = v[9]; p.safetyCeilingDb = v[10];
     p.eqLowGainDb = v[11]; p.eqHighGainDb = v[12];
+    p.btDuckPercent = v[13];
+    p.eqWarmthDb = v[14]; p.eqClarityDb = v[15]; p.eqAirDb = v[16];
+    p.btDuckOn = btDuckOn;
     p.noiseSuppressOn = suppressOn; p.safetyOn = safetyOn;
     p.feedbackRisk = feedbackRisk; p.muted = muted;
     e->setParams(p);
@@ -116,11 +124,11 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeAdaptBuffer(JNIEnv *, jo
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_haramain_monitor_audio_NativeAudioEngine_nativeStartRecording(JNIEnv *env, jobject, jlong handle, jstring path) {
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeStartRecording(JNIEnv *env, jobject, jlong handle, jstring path, jboolean dry) {
     auto *e = fromHandle(handle);
     if (!e || !path) return JNI_FALSE;
     const char *chars = env->GetStringUTFChars(path, nullptr);
-    const bool ok = e->startRecording(chars);
+    const bool ok = e->startRecording(chars, dry == JNI_TRUE);
     env->ReleaseStringUTFChars(path, chars);
     return ok ? JNI_TRUE : JNI_FALSE;
 }
@@ -161,3 +169,24 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetXRunCount(JNIEnv *, j
 }
 
 } // extern "C"
+
+JNIEXPORT void JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeSetBufferMode(JNIEnv *, jobject, jlong handle, jint bursts) {
+    if (auto *e = fromHandle(handle)) e->setBufferMode(bursts);
+}
+
+JNIEXPORT void JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeSetUsageGame(JNIEnv *, jobject, jlong handle, jboolean game) {
+    if (auto *e = fromHandle(handle)) e->setUsageGame(game == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeSetPitchEnabled(JNIEnv *, jobject, jlong handle, jboolean on) {
+    if (auto *e = fromHandle(handle)) e->setPitchEnabled(on == JNI_TRUE);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetPitchHz(JNIEnv *, jobject, jlong handle) {
+    auto *e = fromHandle(handle);
+    return e ? e->getPitchHz() : 0.0f;
+}

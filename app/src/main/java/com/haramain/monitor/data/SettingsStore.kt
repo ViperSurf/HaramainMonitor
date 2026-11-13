@@ -82,6 +82,29 @@ class SettingsStore(private val context: Context) {
         }
     }
 
+    // ---- v2.0 feature preferences ----
+
+    val bufferMode: Flow<Int> =
+        context.settingsDataStore.data.map { it[BUFFER_MODE] ?: 1 }
+
+    suspend fun setBufferMode(bursts: Int) {
+        context.settingsDataStore.edit { it[BUFFER_MODE] = bursts.coerceIn(1, 4) }
+    }
+
+    val pitchOn: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[PITCH_ON] ?: false }
+
+    suspend fun setPitchOn(on: Boolean) {
+        context.settingsDataStore.edit { it[PITCH_ON] = on }
+    }
+
+    val recordDry: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[RECORD_DRY] ?: false }
+
+    suspend fun setRecordDry(dry: Boolean) {
+        context.settingsDataStore.edit { it[RECORD_DRY] = dry }
+    }
+
     // ---- collapsible section state (persisted across app restarts) ----
 
     val openSections: Flow<Map<String, Boolean>> =
@@ -168,5 +191,8 @@ class SettingsStore(private val context: Context) {
         val MIC_LABELS = stringPreferencesKey("mic_labels")
         val HIDDEN_MICS = stringPreferencesKey("hidden_mic_ids")
         val SECTIONS = stringPreferencesKey("open_sections")
+        val BUFFER_MODE = androidx.datastore.preferences.core.intPreferencesKey("buffer_mode")
+        val PITCH_ON = booleanPreferencesKey("pitch_on")
+        val RECORD_DRY = booleanPreferencesKey("record_dry")
     }
 }

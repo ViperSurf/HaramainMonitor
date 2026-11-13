@@ -36,7 +36,7 @@ object NativeAudioEngine {
         if (handle == 0L) return
         nativeSetParams(
             handle, p.toFloatArray(),
-            p.noiseSuppressOn, p.safetyOn, feedbackRisk, p.muted,
+            p.noiseSuppressOn, p.safetyOn, feedbackRisk, p.muted, p.btDuckOn,
         )
     }
 
@@ -53,8 +53,22 @@ object NativeAudioEngine {
         if (handle != 0L) nativeAdaptBuffer(handle)
     }
 
-    fun startRecording(path: String): Boolean =
-        handle != 0L && nativeStartRecording(handle, path)
+    fun startRecording(path: String, dry: Boolean = false): Boolean =
+        handle != 0L && nativeStartRecording(handle, path, dry)
+
+    fun setBufferMode(bursts: Int) {
+        if (handle != 0L) nativeSetBufferMode(handle, bursts)
+    }
+
+    fun setUsageGame(game: Boolean) {
+        if (handle != 0L) nativeSetUsageGame(handle, game)
+    }
+
+    fun setPitchEnabled(on: Boolean) {
+        if (handle != 0L) nativeSetPitchEnabled(handle, on)
+    }
+
+    fun getPitchHz(): Float = if (handle != 0L) nativeGetPitchHz(handle) else 0f
 
     /** Stops recording; returns frames written. */
     fun stopRecording(): Long = if (handle != 0L) nativeStopRecording(handle) else 0L
@@ -86,6 +100,7 @@ object NativeAudioEngine {
     private external fun nativeSetParams(
         handle: Long, values: FloatArray,
         suppressOn: Boolean, safetyOn: Boolean, feedbackRisk: Boolean, muted: Boolean,
+        btDuckOn: Boolean,
     )
     private external fun nativeSetInputDevice(handle: Long, deviceId: Int)
     private external fun nativeSetOutputDevice(handle: Long, deviceId: Int)
@@ -99,7 +114,11 @@ object NativeAudioEngine {
     private external fun nativeAdaptBuffer(handle: Long)
     private external fun nativeStartCalibration(handle: Long)
     private external fun nativeStopCalibration(handle: Long): FloatArray
-    private external fun nativeStartRecording(handle: Long, path: String): Boolean
+    private external fun nativeStartRecording(handle: Long, path: String, dry: Boolean): Boolean
+    private external fun nativeSetBufferMode(handle: Long, bursts: Int)
+    private external fun nativeSetUsageGame(handle: Long, game: Boolean)
+    private external fun nativeSetPitchEnabled(handle: Long, on: Boolean)
+    private external fun nativeGetPitchHz(handle: Long): Float
     private external fun nativeStopRecording(handle: Long): Long
     private external fun nativeIsRecording(handle: Long): Boolean
 }

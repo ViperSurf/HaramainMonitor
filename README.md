@@ -240,3 +240,31 @@ out from under an active route.
 - **Export / Import settings:** one JSON file via the system picker carrying
   presets, mic names/hidden entries, theme, lock state (never the PIN),
   resume preference and section layout — move to a new phone in one step.
+
+## v2.0 — Masjid acoustic spaces, Bluetooth suite, pitch & tone
+
+- **Preset lineup (per spec):** Masjid al-Haram (default — the user's exact
+  numbers: Room 95, Mix 52, Comp 70, De-Esser 50), Masjid an-Nabawi
+  (82/42/65/50), Historic Stone Dome (75/38/65/45), Local Masjid Hall
+  (45/25/60/45), Studio Dry (Room 0, Mix 0 — true zero-reverb isolation),
+  plus Simple Studio, Custom and Auto. Terminology audit: zero "cathedral"
+  or "church" references anywhere in the repo.
+- **UI:** Hardware Routing and Presets open by default; sections animate
+  with a 180 ms animateContentSize tween; meters are isolated in their own
+  composable and painted via drawBehind (meter updates never recompose the
+  screen); live audio-path telemetry pill (route, sample rate, latency,
+  xruns).
+- **Latency:** streams stay at the device's native sample rate (AAudio MMAP
+  fast path — never forced, never downsampled); a Buffer/Latency selector
+  (Ultra-Low 1× / Balanced 2× / Stable 4× bursts) retunes the output buffer
+  live without restarting the service; the xrun auto-grower still guards
+  above the chosen floor.
+- **Bluetooth suite:** split-path guidance (BT output + phone/USB mic, with
+  a one-tap fix when a BT mic would force 16 kHz call mode), Usage::Game
+  low-latency hint on BT outputs, and BT Dry Monitor Ducking — the dry
+  voice ducks (to 25% at full) while the Masjid reverb stays lush, killing
+  the wireless slapback echo.
+- **Recitation tools:** worker-thread autocorrelation pitch indicator
+  (note + Hz, toggleable), a 3-band Vocal Tone Sculptor (Warmth 150 Hz /
+  Clarity 3 kHz / Air 10 kHz, ±12 dB steppers), and a Practice Recorder
+  source toggle (Processed Mix vs Dry Vocal).

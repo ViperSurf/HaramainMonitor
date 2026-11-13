@@ -1,9 +1,19 @@
 package com.haramain.monitor.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -100,16 +110,14 @@ fun MonitorScreen(
     val context = LocalContext.current
     val params by viewModel.params.collectAsState()
     val running by viewModel.isRunning.collectAsState()
-    val inDb by viewModel.inputPeakDb.collectAsState()
-    val outDb by viewModel.outputPeakDb.collectAsState()
-    val sampleRate by viewModel.sampleRate.collectAsState()
-    val latency by viewModel.latencyMs.collectAsState()
-    val xRuns by viewModel.xRuns.collectAsState()
     val inputs by viewModel.inputs.collectAsState()
     val outputs by viewModel.outputs.collectAsState()
     val selIn by viewModel.selectedInputId.collectAsState()
     val selOut by viewModel.selectedOutputId.collectAsState()
     val preset by viewModel.activePreset.collectAsState()
+    val btOut by viewModel.outputIsBluetooth.collectAsState()
+    val btIn by viewModel.inputIsBluetooth.collectAsState()
+    val recordDry by viewModel.recordDry.collectAsState()
     val hasCustom by viewModel.hasCustom.collectAsState()
     val feedbackRisk by viewModel.feedbackRisk.collectAsState()
     val locked by viewModel.settingsLocked.collectAsState()
@@ -250,7 +258,7 @@ fun MonitorScreen(
         }
 
         // ---------- Routing bar ----------
-        ExpandableSection(title = "Hardware Routing", expanded = openSections["routing"] == true, onExpandedChange = { viewModel.setSectionOpen("routing", it) }) {
+        ExpandableSection(title = "Hardware Routing", expanded = openSections["routing"] ?: true, onExpandedChange = { viewModel.setSectionOpen("routing", it) }) {
             DevicePicker(
                 label = "Input Mic",
                 icon = Icons.Filled.Mic,
@@ -282,6 +290,56 @@ fun MonitorScreen(
                             "Plug in headphones for full level.",
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
+            }
+            if (btOut) {
+                Spacer(Modifier.height(12.dp))
+                Text("Bluetooth Output", style = MaterialTheme.typography.titleSmall)
+                if (btIn) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                        Text(
+                            "A Bluetooth mic drops Android into 16 kHz call mode (HFP/SCO) and " +
+                                "muffles everything. Split-path is better: hear on Bluetooth, " +
+                                "record from the phone or USB mic.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 6.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(onClick = { viewModel.usePhoneOrUsbMic() }, enabled = controlsEnabled) {
+                        Text("Use phone / USB mic instead")
+                    }
+                } else {
+                    Text(
+                        "Split-path active: Bluetooth for your ears, phone/USB mic for your voice — full 48 kHz, no call-mode muffling.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                ToggleRow(
+                    label = "BT Dry Monitor Ducking",
+                    checked = params.btDuckOn,
+                    onCheckedChange = { on -> viewModel.update { it.copy(btDuckOn = on) } },
+                    enabled = controlsEnabled,
+                )
+                if (params.btDuckOn) {
+                    PrecisionControl(
+                        label = "Dry Duck Amount",
+                        value = params.btDuckPercent, valueRange = 0f..100f, step = 1f,
+                        defaultValue = 50f,
+                        format = { pct(it) },
+                        onValueChange = { v -> viewModel.update { it.copy(btDuckPercent = v) } },
+                        enabled = controlsEnabled,
+                    )
+                    Text(
+                        "Wireless latency makes your direct voice echo against itself. Ducking lowers only the dry voice — the Masjid reverb stays full.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -352,19 +410,7 @@ fun MonitorScreen(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            LevelMeter("Input", inDb, running)
-            LevelMeter("Output", outDb, running)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                if (running) {
-                    String.format(
-                        Locale.US, "%.1f kHz • %.1f ms round-trip • %d xruns",
-                        sampleRate / 1000f, latency, xRuns,
-                    )
-                } else "Start monitoring to see live sample rate and latency",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            MetersPanel(viewModel)
         }
 
         // ---------- Recording ----------
@@ -386,6 +432,21 @@ fun MonitorScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = !recordDry,
+                    onClick = { viewModel.setRecordDry(false) },
+                    enabled = !isRecording,
+                    label = { Text("Processed Mix") },
+                )
+                FilterChip(
+                    selected = recordDry,
+                    onClick = { viewModel.setRecordDry(true) },
+                    enabled = !isRecording,
+                    label = { Text("Dry Vocal") },
+                )
+            }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
@@ -408,7 +469,7 @@ fun MonitorScreen(
         }
 
         // ---------- Presets ----------
-        ExpandableSection(title = "Presets", expanded = openSections["presets"] == true, onExpandedChange = { viewModel.setSectionOpen("presets", it) }) {
+        ExpandableSection(title = "Presets", expanded = openSections["presets"] ?: true, onExpandedChange = { viewModel.setSectionOpen("presets", it) }) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -560,6 +621,35 @@ fun MonitorScreen(
                 defaultValue = 0f,
                 format = { db(it) },
                 onValueChange = { v -> viewModel.update { it.copy(eqHighGainDb = v) } },
+                enabled = controlsEnabled,
+                showCenterSnap = true,
+            )
+            Spacer(Modifier.height(10.dp))
+            Text("Vocal Tone Sculptor", style = MaterialTheme.typography.titleSmall)
+            PrecisionControl(
+                label = "Warmth (150 Hz)",
+                value = params.eqWarmthDb, valueRange = -12f..12f, step = 0.5f,
+                defaultValue = 0f,
+                format = { db(it) },
+                onValueChange = { v -> viewModel.update { it.copy(eqWarmthDb = v) } },
+                enabled = controlsEnabled,
+                showCenterSnap = true,
+            )
+            PrecisionControl(
+                label = "Clarity (3 kHz)",
+                value = params.eqClarityDb, valueRange = -12f..12f, step = 0.5f,
+                defaultValue = 0f,
+                format = { db(it) },
+                onValueChange = { v -> viewModel.update { it.copy(eqClarityDb = v) } },
+                enabled = controlsEnabled,
+                showCenterSnap = true,
+            )
+            PrecisionControl(
+                label = "Air (10 kHz)",
+                value = params.eqAirDb, valueRange = -12f..12f, step = 0.5f,
+                defaultValue = 0f,
+                format = { db(it) },
+                onValueChange = { v -> viewModel.update { it.copy(eqAirDb = v) } },
                 enabled = controlsEnabled,
                 showCenterSnap = true,
             )
@@ -810,8 +900,17 @@ private fun ExpandableSection(
                     )
                 }
             }
-            AnimatedVisibility(visible = expanded) {
-                Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) { content() }
+            Column(
+                Modifier.animateContentSize(
+                    animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                ),
+            ) {
+                if (expanded) {
+                    Column(
+                        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                            .graphicsLayer { alpha = 1f },
+                    ) { content() }
+                }
             }
         }
     }
@@ -851,24 +950,117 @@ private fun ToggleRow(
     }
 }
 
+private fun pitchNoteName(hz: Float): String {
+    if (hz <= 0f) return "—"
+    val names = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+    val midi = (69.0 + 12.0 * (kotlin.math.ln(hz / 440.0) / kotlin.math.ln(2.0))).roundToInt()
+    return names[((midi % 12) + 12) % 12] + (midi / 12 - 1).toString()
+}
+
+/**
+ * Everything that updates at meter rate lives in this one composable, so
+ * 20 fps telemetry recomposes ONLY here — never the screen, the sections,
+ * or their expand/collapse animations.
+ */
+@Composable
+private fun MetersPanel(viewModel: MonitorViewModel) {
+    val running by viewModel.isRunning.collectAsState()
+    val inDb by viewModel.inputPeakDb.collectAsState()
+    val outDb by viewModel.outputPeakDb.collectAsState()
+    val sampleRate by viewModel.sampleRate.collectAsState()
+    val latency by viewModel.latencyMs.collectAsState()
+    val xRuns by viewModel.xRuns.collectAsState()
+    val btOut by viewModel.outputIsBluetooth.collectAsState()
+    val bufferMode by viewModel.bufferMode.collectAsState()
+    val pitchOn by viewModel.pitchOn.collectAsState()
+    val pitchHz by viewModel.pitchHz.collectAsState()
+
+    LevelMeter("Input", inDb, running)
+    LevelMeter("Output", outDb, running)
+    Spacer(Modifier.height(8.dp))
+
+    // Live audio-path telemetry pill.
+    val pathLabel = when {
+        !running -> "Idle"
+        btOut -> "BT Split-Path (A2DP/LE)"
+        else -> "Wired/USB Direct"
+    }
+    val pillText = if (running) {
+        pathLabel + String.format(
+            Locale.US, " • %.0f kHz • ~%.0f ms • %d xruns",
+            sampleRate / 1000f, latency, xRuns,
+        )
+    } else "Start monitoring to see the live audio path"
+    Box(
+        modifier = Modifier.clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text(pillText, style = MaterialTheme.typography.labelLarge)
+    }
+    Spacer(Modifier.height(10.dp))
+
+    // Buffer / latency tuning (applies live, no service restart).
+    Text("Buffer / Latency Tuning", style = MaterialTheme.typography.labelLarge)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(1 to "Ultra-Low 1×", 2 to "Balanced 2×", 4 to "Stable 4×").forEach { (bursts, label) ->
+            FilterChip(
+                selected = bufferMode == bursts,
+                onClick = { viewModel.setBufferMode(bursts) },
+                label = { Text(label) },
+            )
+        }
+    }
+    Spacer(Modifier.height(6.dp))
+
+    // Pitch indicator toggle + readout.
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text("Pitch indicator", style = MaterialTheme.typography.labelLarge)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (pitchOn) {
+                Text(
+                    if (running && pitchHz > 0f) {
+                        pitchNoteName(pitchHz) + String.format(Locale.US, " • %.0f Hz", pitchHz)
+                    } else "Listening…",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(end = 10.dp),
+                )
+            }
+            Switch(checked = pitchOn, onCheckedChange = { viewModel.setPitchOn(it) })
+        }
+    }
+}
+
 @Composable
 private fun LevelMeter(label: String, dbValue: Float, active: Boolean) {
     val fraction = ((dbValue.coerceIn(-60f, 0f) + 60f) / 60f)
-    val animated by animateFloatAsState(targetValue = if (active) fraction else 0f, label = "meter$label")
+    val animatedState = animateFloatAsState(targetValue = if (active) fraction else 0f, label = "meter$label")
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(0.22f))
-        LinearProgressIndicator(
-            progress = { animated },
-            modifier = Modifier.weight(0.6f).height(10.dp),
-            color = when {
-                dbValue > -6f -> MaterialTheme.colorScheme.error
-                dbValue > -18f -> MaterialTheme.colorScheme.secondary
-                else -> MaterialTheme.colorScheme.primary
-            },
+        val barColor = when {
+            dbValue > -6f -> MaterialTheme.colorScheme.error
+            dbValue > -18f -> MaterialTheme.colorScheme.secondary
+            else -> MaterialTheme.colorScheme.primary
+        }
+        // The bar is painted in the DRAW phase (drawBehind reads the animated
+        // value there), so 60 fps meter updates never recompose this row.
+        Box(
+            modifier = Modifier.weight(0.6f).height(10.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .drawBehind {
+                    val f = animatedState.value.coerceIn(0f, 1f)
+                    if (f > 0f) drawRect(color = barColor, size = Size(size.width * f, size.height))
+                },
         )
         Text(
             if (active) String.format(Locale.US, "%.0f dB", dbValue) else "— dB",

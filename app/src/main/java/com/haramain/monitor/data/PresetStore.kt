@@ -71,6 +71,11 @@ class PresetStore(private val context: Context) {
             eqLowGainDb = this[floatPreferencesKey(prefix + "eqlow")] ?: 0f,
             eqHighGainDb = this[floatPreferencesKey(prefix + "eqhigh")] ?: 0f,
             masterGainDb = this[floatPreferencesKey(prefix + "master")] ?: 0f,
+            btDuckPercent = this[floatPreferencesKey(prefix + "duck")] ?: 50f,
+            btDuckOn = this[booleanPreferencesKey(prefix + "duckOn")] ?: false,
+            eqWarmthDb = this[floatPreferencesKey(prefix + "warmth")] ?: 0f,
+            eqClarityDb = this[floatPreferencesKey(prefix + "clarity")] ?: 0f,
+            eqAirDb = this[floatPreferencesKey(prefix + "air")] ?: 0f,
             safetyOn = this[booleanPreferencesKey(prefix + "safetyOn")] ?: true,
             safetyCeilingDb = this[floatPreferencesKey(prefix + "ceiling")] ?: -3f,
             muted = false,
@@ -91,6 +96,11 @@ class PresetStore(private val context: Context) {
         this[floatPreferencesKey(prefix + "eqlow")] = p.eqLowGainDb
         this[floatPreferencesKey(prefix + "eqhigh")] = p.eqHighGainDb
         this[floatPreferencesKey(prefix + "master")] = p.masterGainDb
+        this[floatPreferencesKey(prefix + "duck")] = p.btDuckPercent
+        this[booleanPreferencesKey(prefix + "duckOn")] = p.btDuckOn
+        this[floatPreferencesKey(prefix + "warmth")] = p.eqWarmthDb
+        this[floatPreferencesKey(prefix + "clarity")] = p.eqClarityDb
+        this[floatPreferencesKey(prefix + "air")] = p.eqAirDb
         this[booleanPreferencesKey(prefix + "safetyOn")] = p.safetyOn
         this[floatPreferencesKey(prefix + "ceiling")] = p.safetyCeilingDb
     }

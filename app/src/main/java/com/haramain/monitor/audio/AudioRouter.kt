@@ -34,6 +34,17 @@ enum class OutputKind(val label: String) {
     OTHER("Output"),
 }
 
+private val BT_AUDIO_TYPES = setOf(
+    android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+    android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+    android.media.AudioDeviceInfo.TYPE_HEARING_AID,
+    android.media.AudioDeviceInfo.TYPE_BLE_HEADSET,
+    android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER,
+)
+
+/** True for any Bluetooth audio path (SCO call-mode, A2DP, or LE Audio). */
+val RouteDevice.isBluetooth: Boolean get() = rawType in BT_AUDIO_TYPES
+
 data class RouteDevice(
     val id: Int,
     val name: String,

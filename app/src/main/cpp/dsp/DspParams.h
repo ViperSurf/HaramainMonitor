@@ -15,6 +15,11 @@ struct DspParams {
     float balancePercent    = 0.0f;    // -100 (L) .. 0 (C) .. +100 (R)
     float eqLowGainDb       = 0.0f;    // -12..+12 user low-shelf (bass) trim, added to preset voicing
     float eqHighGainDb      = 0.0f;    // -12..+12 user high-shelf (treble) trim, added to preset voicing
+    float btDuckPercent     = 50.0f;   // 0..100 Bluetooth dry-monitor ducking amount
+    bool  btDuckOn          = false;   // duck the dry voice on BT (wet reverb stays lush)
+    float eqWarmthDb        = 0.0f;    // -12..+12 tone sculptor: low shelf 150 Hz
+    float eqClarityDb       = 0.0f;    // -12..+12 tone sculptor: peak 3 kHz
+    float eqAirDb           = 0.0f;    // -12..+12 tone sculptor: high shelf 10 kHz
     float masterGainDb      = 0.0f;    // -24..+12 output trim
     bool  safetyOn          = true;    // Headphone Safety mode
     float safetyCeilingDb   = -3.0f;   // ceiling while safety is ON

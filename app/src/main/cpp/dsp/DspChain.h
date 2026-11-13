@@ -71,9 +71,17 @@ public:
 
         // --- 7. Haramain EQ + Reverb ---
         eq_.setUserGains(p.eqLowGainDb, p.eqHighGainDb);
+        eq_.setTone(p.eqWarmthDb, p.eqClarityDb, p.eqAirDb);
         l = eq_.process(l, 0);
         r = eq_.process(r, 1);
-        reverb_.process(l, r, p.roomSizePercent / 100.0f, p.wetDryPercent / 100.0f, l, r);
+        // Bluetooth dry-ducking: on wireless, the direct voice arrives a
+        // codec-latency late and fights the room sound as a slapback echo.
+        // Duck the DRY path only (to 25% at full ducking); the wet Masjid
+        // space stays lush — distance without the doubling.
+        const float dryScale = p.btDuckOn
+            ? 1.0f - 0.75f * clampf(p.btDuckPercent / 100.0f, 0.0f, 1.0f)
+            : 1.0f;
+        reverb_.process(l, r, p.roomSizePercent / 100.0f, p.wetDryPercent / 100.0f, l, r, dryScale);
 
         // Master trim
         const float master = dbToLinear(p.masterGainDb);
