@@ -44,8 +44,11 @@ public:
     void setUsageGame(bool game);                // BT low-latency output usage hint
     void setPitchEnabled(bool on) { mPitchEnabled.store(on); }
     float getPitchHz() const { return mPitchHz.load(); }
-    void activity(float &gate, float &ns, float &lim) const {
+    // Worst (lowest) stage gains since the previous call; reading resets
+    // the accumulators, so a 50 ms UI poll captures every dip in between.
+    void activity(float &gate, float &ns, float &lim) {
         gate = mActGate.load(); ns = mActNs.load(); lim = mActLim.load();
+        mActGate.store(1.0f); mActNs.store(1.0f); mActLim.store(1.0f);
     }
     int32_t outputBufferFrames() const {
         return mOutputStream ? mOutputStream->getBufferSizeInFrames() : 0;

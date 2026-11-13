@@ -289,3 +289,28 @@ Field-report driven (v2.0.1 on a real phone + USB/Bluetooth mics):
   a hard platform limit; phone/USB mics are the quality path.
 - Pitch thread is now restart-safe against the stream-error recovery
   path (join-before-relaunch).
+
+## v2.2 — The suppressor actually suppresses; Bluetooth stability pass
+
+- **Noise suppression was inert (field-caught, host-proven).** The floor
+  tracker could never learn a real noise level: seeded at 1e-5, it could
+  only rise within 1.6x of itself, while real hiss sits 100x+ higher, so
+  the Wiener gain never left 1.0 and the Activity meter honestly read 0%.
+  Two candidate laws failed host tests before the keeper: minimum-
+  statistics over 0.25 s blocks (smoothed block minima). Verified: steady
+  hiss now settles at the full depth gain (0.66 at 40%) while modulated
+  speech bursts pass at 0.99. The stale constant-level unit test was
+  rewritten to the real contract.
+- **Activity readout is now read-and-hold:** the native side accumulates
+  the worst stage gains between polls and resets on read, so brief
+  suppression/limiter dips can't slip between 50 ms UI polls.
+- **Bluetooth stability:** BT outputs get a 2-burst buffer floor (a
+  1-burst app buffer starves the radio link into dropouts) and the xrun
+  auto-grower may climb to 8 bursts on BT (4 elsewhere). A clock-drift
+  guard drops oldest ring frames when input and output device clocks
+  diverge (split-path phone-mic -> BT-out), preventing the slow latency
+  creep that ends in dropout bursts.
+- **Buffer on hardware change:** route changes now re-assert the user's
+  buffer mode on the new device, and the pill shows frames AND mode
+  (`buf 192f · 1x`) — frame counts differ across devices because burst
+  sizes differ (96f and 192f can both be Ultra-Low 1x).

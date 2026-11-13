@@ -57,6 +57,7 @@ class MicMonitorService : Service() {
     private var recoveryAttempts = 0
     private var currentRecFile: File? = null
     @Volatile private var recordDryCached = false
+    @Volatile private var bufferModeCached = 1
     private val settings by lazy { SettingsStore(this) }
 
     private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
@@ -124,7 +125,12 @@ class MicMonitorService : Service() {
             MonitorState.params.collectLatest { applyParams(); pushForeground() }
         }
         // v2.0 settings -> native: buffer mode, pitch toggle, BT usage hint.
-        scope.launch { settings.bufferMode.collectLatest { NativeAudioEngine.setBufferMode(it) } }
+        scope.launch {
+            settings.bufferMode.collectLatest {
+                bufferModeCached = it
+                NativeAudioEngine.setBufferMode(it)
+            }
+        }
         scope.launch { settings.pitchOn.collectLatest { NativeAudioEngine.setPitchEnabled(it) } }
         scope.launch { settings.recordDry.collectLatest { recordDryCached = it } }
         scope.launch {
@@ -173,6 +179,9 @@ class MicMonitorService : Service() {
                     lastRouteEvents = events
                     router.refresh()       // device fell back natively; resync UI lists/badges
                     applyParams()          // feedback risk may have changed with the new route
+                    // Hardware changed: relaunch the buffer at the user's
+                    // mode on the new device (its burst size may differ).
+                    NativeAudioEngine.setBufferMode(bufferModeCached)
                 }
                 delay(50)
             }

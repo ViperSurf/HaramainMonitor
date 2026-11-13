@@ -993,7 +993,7 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
         pathLabel + String.format(
             Locale.US, " • %.0f kHz • ~%.0f ms • %d xruns",
             sampleRate / 1000f, latency, xRuns,
-        ) + if (bufferFrames > 0) " • buf ${bufferFrames}f" else ""
+        ) + if (bufferFrames > 0) " • buf ${bufferFrames}f · ${bufferMode}×" else ""
     } else "Start monitoring to see the live audio path"
     Box(
         modifier = Modifier.clip(RoundedCornerShape(50))

@@ -63,10 +63,15 @@ bool AudioEngine::openStreams() {
     // Start at the user's buffer mode (default 1 burst = ultra-low). The
     // stream stays at the device's NATIVE sample rate (never forced), so
     // Android keeps the AAudio MMAP / FastMixer path — no OS resampling.
-    mBufferMultiplier.store(mUserBursts.load());
+    // Bluetooth outputs get a 2-burst FLOOR regardless of the user's mode:
+    // the radio link consumes in large, jittery chunks and a 1-burst app
+    // buffer starves it into recurring dropouts.
+    const int32_t effMult = mUsageGame.load() ? std::max<int32_t>(mUserBursts.load(), 2)
+                                              : mUserBursts.load();
+    mBufferMultiplier.store(effMult);
     mLastXRunSeen.store(0);
-    mOutputStream->setBufferSizeInFrames(burst * mUserBursts.load());
-    mInputStream->setBufferSizeInFrames(mInputStream->getFramesPerBurst() * mUserBursts.load());
+    mOutputStream->setBufferSizeInFrames(burst * effMult);
+    mInputStream->setBufferSizeInFrames(mInputStream->getFramesPerBurst() * effMult);
 
     const int32_t sr = mOutputStream->getSampleRate();
     mSampleRate.store(sr);
@@ -283,8 +288,17 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
 
     // Consumer: pull from the ring, run the chain, write stereo out.
     auto *out = static_cast<float *>(audioData);
-    const size_t tail = mMicTail.load(std::memory_order_relaxed);
+    size_t tail = mMicTail.load(std::memory_order_relaxed);
     const size_t head = mMicHead.load(std::memory_order_acquire);
+    // Clock-drift guard: input and output devices run on different crystals
+    // (worst in split-path: phone mic in, Bluetooth out). If the producer
+    // has run far ahead, drop the oldest frames back to a quarter ring —
+    // otherwise latency creeps up for minutes and ends in a burst of
+    // dropouts when the ring finally wraps.
+    if (head - tail > kMicRingSize * 3 / 4) {
+        tail = head - kMicRingSize / 4;
+        mMicTail.store(tail, std::memory_order_relaxed);
+    }
     const size_t available = head - tail;
     const size_t toRead = std::min(static_cast<size_t>(numFrames), available);
 
@@ -322,7 +336,9 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
 
     if (inPeak > mInPeak.load()) mInPeak.store(inPeak);
     if (outPeak > mOutPeak.load()) mOutPeak.store(outPeak);
-    mActGate.store(minGate); mActNs.store(minNs); mActLim.store(minLim);
+    mActGate.store(std::min(mActGate.load(), minGate));
+    mActNs.store(std::min(mActNs.load(), minNs));
+    mActLim.store(std::min(mActLim.load(), minLim));
     return oboe::DataCallbackResult::Continue;
 }
 
@@ -349,7 +365,8 @@ void AudioEngine::adaptBufferIfNeeded() {
     if (xruns > mLastXRunSeen.load()) {
         mLastXRunSeen.store(xruns);
         const int32_t mult = mBufferMultiplier.load();
-        if (mult < 4) {
+        const int32_t cap = mUsageGame.load() ? 8 : 4;   // BT links may need more headroom
+        if (mult < cap) {
             const int32_t next = mult + 1;
             mBufferMultiplier.store(next);
             mOutputStream->setBufferSizeInFrames(mOutputBurst.load() * next);

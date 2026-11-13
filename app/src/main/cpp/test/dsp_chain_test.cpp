@@ -142,10 +142,20 @@ int main() {
     //    speech, not chase the voice. Constant 0.2 level for 3 s at 40% depth
     //    must keep the gain near unity (old code sank toward ~0.66).
     {
+        // v2.2 contract (the constant-level version encoded the old inert
+        // law): steady hiss must be suppressed; modulated "speech" bursts
+        // over the same hiss must pass untouched.
         NoiseSuppressor ns; ns.prepare(SR);
         float g = 1.0f;
-        for (int i = 0; i < 144000; ++i) g = ns.processGain(0.2f, 0.4f);
-        check("suppressor floor frozen during speech", g > 0.9f, g);
+        for (int i = 0; i < 144000; ++i) g = ns.processGain(0.02f, 0.4f);   // 3 s hiss
+        check("suppressor engages on steady hiss", g < 0.8f, g);
+        float gBurst = 0.0f;
+        for (int cyc = 0; cyc < 6; ++cyc) {
+            for (int i = 0; i < 14400; ++i) g = ns.processGain(0.3f, 0.4f);   // 300 ms burst
+            gBurst = g;
+            for (int i = 0; i < 9600; ++i) g = ns.processGain(0.02f, 0.4f);   // 200 ms gap
+        }
+        check("suppressor leaves speech bursts untouched", gBurst > 0.9f, gBurst);
     }
 
     // 9) REGRESSION (user report: far-mic gate chatter "weird noise"):
