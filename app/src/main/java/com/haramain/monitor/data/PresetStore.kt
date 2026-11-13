@@ -1,6 +1,7 @@
 package com.haramain.monitor.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -51,7 +52,7 @@ class PresetStore(private val context: Context) {
         )
     }
 
-    private fun Preferences.writeParams(prefix: String, p: AudioParams) {
+    private fun MutablePreferences.writeParams(prefix: String, p: AudioParams) {
         this[floatPreferencesKey(prefix + "boost")] = p.micBoostPercent
         this[floatPreferencesKey(prefix + "static")] = p.staticRemover
         this[floatPreferencesKey(prefix + "suppress")] = p.noiseSuppress
