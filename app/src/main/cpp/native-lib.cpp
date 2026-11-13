@@ -168,7 +168,6 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetXRunCount(JNIEnv *, j
     return e ? e->getXRunCount() : 0;
 }
 
-} // extern "C"
 
 JNIEXPORT void JNICALL
 Java_com_haramain_monitor_audio_NativeAudioEngine_nativeSetBufferMode(JNIEnv *, jobject, jlong handle, jint bursts) {
@@ -190,3 +189,5 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetPitchHz(JNIEnv *, job
     auto *e = fromHandle(handle);
     return e ? e->getPitchHz() : 0.0f;
 }
+
+} // extern "C"
