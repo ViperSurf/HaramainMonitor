@@ -21,6 +21,7 @@ import com.haramain.monitor.R
 import com.haramain.monitor.audio.AudioRouter
 import com.haramain.monitor.audio.NativeAudioEngine
 import com.haramain.monitor.data.SettingsStore
+import kotlinx.coroutines.flow.first
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -53,6 +54,7 @@ class MicMonitorService : Service() {
     private var focusMuted = false
     private var lastRouteEvents = 0
     private var recoveryAttempts = 0
+    private var currentRecFile: File? = null
     private val settings by lazy { SettingsStore(this) }
 
     private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
@@ -171,6 +173,7 @@ class MicMonitorService : Service() {
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val file = File(dir, "Haramain_$stamp.wav")
         if (NativeAudioEngine.startRecording(file.absolutePath)) {
+            currentRecFile = file
             MonitorState.isRecording.value = true
             MonitorState.recordingStartedAtMs.value = System.currentTimeMillis()
         }
@@ -181,6 +184,31 @@ class MicMonitorService : Service() {
         MonitorState.isRecording.value = false
         MonitorState.recordingStartedAtMs.value = 0L
         MonitorState.recordingsChanged.value += 1
+        val finished = currentRecFile
+        currentRecFile = null
+        if (finished != null) {
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) { copyToExportFolder(finished) }
+        }
+    }
+
+    /** If the user picked a recording folder (SAF), copy each finished WAV there. */
+    private suspend fun copyToExportFolder(file: File) {
+        try {
+            val uriString = settings.exportFolderUri.first()
+            if (uriString.isBlank() || !file.exists()) return
+            val treeUri = android.net.Uri.parse(uriString)
+            val parentDoc = android.provider.DocumentsContract.buildDocumentUriUsingTree(
+                treeUri, android.provider.DocumentsContract.getTreeDocumentId(treeUri),
+            )
+            val docUri = android.provider.DocumentsContract.createDocument(
+                contentResolver, parentDoc, "audio/wav", file.name,
+            ) ?: return
+            contentResolver.openOutputStream(docUri)?.use { out ->
+                file.inputStream().use { it.copyTo(out) }
+            }
+        } catch (_: Exception) {
+            // Best-effort: the original stays safe in the app folder regardless.
+        }
     }
 
     private fun stopMonitoring() {

@@ -61,6 +61,14 @@ object NativeAudioEngine {
 
     fun isRecording(): Boolean = handle != 0L && nativeIsRecording(handle)
 
+    fun startCalibration() {
+        if (handle != 0L) nativeStartCalibration(handle)
+    }
+
+    /** [rmsDb, peakDb, hfRmsDb, seconds]; seconds == 0 means measurement failed. */
+    fun stopCalibration(): FloatArray =
+        if (handle != 0L) nativeStopCalibration(handle) else floatArrayOf(-80f, -80f, -80f, 0f)
+
     fun sampleRate(): Int = if (handle != 0L) nativeGetSampleRate(handle) else 0
     fun latencyMs(): Float = if (handle != 0L) nativeGetLatencyMs(handle) else 0f
     fun inputPeakDb(): Float = if (handle != 0L) nativeGetInputPeakDb(handle) else -80f
@@ -89,6 +97,8 @@ object NativeAudioEngine {
     private external fun nativeGetAudioSessionId(handle: Long): Int
     private external fun nativeGetXRunCount(handle: Long): Int
     private external fun nativeAdaptBuffer(handle: Long)
+    private external fun nativeStartCalibration(handle: Long)
+    private external fun nativeStopCalibration(handle: Long): FloatArray
     private external fun nativeStartRecording(handle: Long, path: String): Boolean
     private external fun nativeStopRecording(handle: Long): Long
     private external fun nativeIsRecording(handle: Long): Boolean

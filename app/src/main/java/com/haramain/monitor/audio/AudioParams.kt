@@ -63,6 +63,13 @@ data class AudioParams(
             gateThresholdDb = -55f, deEsserPercent = 35f, compressorPercent = 60f,
             roomSizePercent = 12f, wetDryPercent = 8f,
         )
+
+        /** Simple Studio: clean, nearly dry, podcast-style — for plain speech. */
+        val SIMPLE_STUDIO = AudioParams(
+            micBoostPercent = 50f, staticRemover = 60f, noiseSuppress = 45f,
+            gateThresholdDb = -50f, deEsserPercent = 40f, compressorPercent = 55f,
+            roomSizePercent = 10f, wetDryPercent = 6f,
+        )
     }
 }
 
@@ -70,6 +77,7 @@ enum class PresetKind(val label: String) {
     HARAMAIN("Haramain"),
     NABAWI("Masjid an-Nabawi"),
     STUDIO("Studio Dry"),
+    SIMPLE("Simple Studio"),
     ORIGINAL("Haramain (Original)"),
     CUSTOM("Custom"),
 }
@@ -78,6 +86,7 @@ fun AudioParams.matchesPreset(kind: PresetKind): Boolean = when (kind) {
     PresetKind.HARAMAIN -> copy(muted = false) == AudioParams.HARAMAIN.copy(muted = false)
     PresetKind.NABAWI -> copy(muted = false) == AudioParams.NABAWI.copy(muted = false)
     PresetKind.STUDIO -> copy(muted = false) == AudioParams.STUDIO_DRY.copy(muted = false)
+    PresetKind.SIMPLE -> copy(muted = false) == AudioParams.SIMPLE_STUDIO.copy(muted = false)
     PresetKind.ORIGINAL -> copy(muted = false) == AudioParams.ORIGINAL.copy(muted = false)
     PresetKind.CUSTOM -> false
 }

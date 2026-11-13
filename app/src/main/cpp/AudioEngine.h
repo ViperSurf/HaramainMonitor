@@ -43,6 +43,12 @@ public:
     int64_t stopRecording();                    // returns frames written
     bool isRecording() const { return mRecording.load(); }
 
+    // Calibration analyzer: measures the RAW input (pre-DSP) while active —
+    // RMS, peak, and high-frequency (>~4 kHz) RMS for the Auto Setup wizard.
+    void startCalibration();
+    // Stops and waits briefly for the callback to publish; false if no audio flowed.
+    bool stopCalibration(float &rmsDb, float &peakDb, float &hfDb, float &seconds);
+
     oboe::DataCallbackResult onAudioReady(oboe::AudioStream *stream, void *audioData,
                                           int32_t numFrames) override;
     void onErrorAfterClose(oboe::AudioStream *stream, oboe::Result error) override;
@@ -66,6 +72,17 @@ private:
     std::string mRecPath;
     std::atomic<int64_t> mRecFramesWritten{0};
     void recorderLoop();
+
+    // Calibration state (accumulators touched only by the input callback)
+    std::atomic<bool> mCalActive{false};
+    std::atomic<bool> mCalReset{false};
+    std::atomic<bool> mCalPublishReq{false};
+    std::atomic<uint32_t> mCalPublishSeq{0};
+    std::atomic<float> mCalRmsDb{-80.0f}, mCalPeakDb{-80.0f}, mCalHfDb{-80.0f};
+    std::atomic<int64_t> mCalFramesPub{0};
+    double calSumSq_ = 0.0, calHfSumSq_ = 0.0, calPeak_ = 0.0;
+    int64_t calFrames_ = 0;
+    float calHp_ = 0.0f, calPrev_ = 0.0f;
 
     std::shared_ptr<oboe::AudioStream> mInputStream;
     std::shared_ptr<oboe::AudioStream> mOutputStream;

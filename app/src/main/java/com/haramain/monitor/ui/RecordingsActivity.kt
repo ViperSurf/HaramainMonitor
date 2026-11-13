@@ -18,7 +18,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import android.content.ContentValues
+import android.os.Build
+import android.provider.MediaStore
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -70,6 +74,27 @@ class RecordingsActivity : ComponentActivity() {
             HaramainMonitorTheme(mode) {
                 RecordingsScreen(onBack = { finish() })
             }
+        }
+    }
+}
+
+/** One-tap copy into the public Downloads folder (MediaStore, Android 10+). */
+private suspend fun saveToDownloads(context: android.content.Context, item: RecordingItem): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+    return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, item.name)
+                put(MediaStore.Downloads.MIME_TYPE, if (item.isWav) "audio/wav" else "audio/mp4")
+                put(MediaStore.Downloads.RELATIVE_PATH, "Download/HaramainMonitor")
+            }
+            val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: return@withContext false
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                item.file.inputStream().use { it.copyTo(out) }
+            } != null
+        } catch (_: Exception) {
+            false
         }
     }
 }
@@ -169,6 +194,19 @@ private fun RecordingsScreen(onBack: () -> Unit) {
                                 context.startActivity(Intent.createChooser(intent, "Share recording"))
                             }) {
                                 Icon(Icons.Filled.Share, contentDescription = "Share")
+                            }
+                            IconButton(onClick = {
+                                scope.launch {
+                                    val ok = saveToDownloads(context, item)
+                                    Toast.makeText(
+                                        context,
+                                        if (ok) "Saved to Downloads/HaramainMonitor"
+                                        else "Downloads needs Android 10+ — use Share instead",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            }) {
+                                Icon(Icons.Filled.Download, contentDescription = "Save to Downloads")
                             }
                             if (item.isWav) {
                                 IconButton(onClick = {

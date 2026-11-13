@@ -186,3 +186,19 @@ hard-left balance silences the right channel; mute is exact zero.
 - **Resume & recovery:** if the app process dies while monitoring, reopening
   the app resumes automatically (explicit stops don't). If the native engine
   dies mid-session, the service retries up to 3 times before stopping cleanly.
+
+## v1.2 — Auto Setup, save locations, Simple Studio
+
+- **Auto Setup** (Presets card): a two-step calibration. Step 1 measures the
+  room while you breathe without speaking (gate is set above your breath);
+  step 2 (optional) measures your recitation. Guardrails: boost is derived
+  from measured peaks and capped so peaks land near −9 dBFS (6 dB below the
+  safety ceiling — the limiter stays out), suppression is capped at 60, and
+  the gate can never sit above your voice's average level. The result is
+  reviewable before applying and saves as an **Auto** preset chip. The native
+  analyzer measures the RAW input (RMS / peak / >4 kHz RMS) pre-DSP.
+- **Simple Studio** preset: clean, nearly dry speech (Room 10 / Mix 6).
+- **Save locations:** every Library item has a one-tap **Save to Downloads**
+  (MediaStore, Android 10+), and App Settings gains a **Recording folder**
+  picker (SAF) — finished recordings are automatically copied to the folder
+  you choose, which can be a Downloads or Google Drive folder.

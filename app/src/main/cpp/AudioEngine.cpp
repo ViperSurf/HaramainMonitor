@@ -148,8 +148,35 @@ DspParams AudioEngine::snapshotParams() const {
 oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, void *audioData,
                                                    int32_t numFrames) {
     if (stream == mInputStream.get()) {
+        const auto *raw = static_cast<const float *>(audioData);
+        // Calibration analyzer on the RAW input (pre-DSP, pre-ring).
+        if (mCalReset.exchange(false)) {
+            calSumSq_ = 0.0; calHfSumSq_ = 0.0; calPeak_ = 0.0; calFrames_ = 0;
+            calHp_ = 0.0f; calPrev_ = 0.0f;
+        }
+        if (mCalActive.load(std::memory_order_relaxed)) {
+            for (int32_t i = 0; i < numFrames; ++i) {
+                const float x = raw[i];
+                calSumSq_ += static_cast<double>(x) * x;
+                calPeak_ = std::max(calPeak_, static_cast<double>(std::fabs(x)));
+                calHp_ = 0.78f * (calHp_ + x - calPrev_);   // one-pole high-pass ~4 kHz
+                calPrev_ = x;
+                calHfSumSq_ += static_cast<double>(calHp_) * calHp_;
+                ++calFrames_;
+            }
+        }
+        if (mCalPublishReq.exchange(false)) {
+            const int64_t n = std::max<int64_t>(calFrames_, 1);
+            const double rms = std::sqrt(calSumSq_ / n);
+            const double hf = std::sqrt(calHfSumSq_ / n);
+            mCalRmsDb.store(rms > 1e-7 ? static_cast<float>(20.0 * std::log10(rms)) : -80.0f);
+            mCalHfDb.store(hf > 1e-7 ? static_cast<float>(20.0 * std::log10(hf)) : -80.0f);
+            mCalPeakDb.store(calPeak_ > 1e-7 ? static_cast<float>(20.0 * std::log10(calPeak_)) : -80.0f);
+            mCalFramesPub.store(calFrames_);
+            mCalPublishSeq.fetch_add(1);
+        }
         // Producer: push mono mic frames into the ring (drop newest on overflow).
-        const auto *in = static_cast<const float *>(audioData);
+        const auto *in = raw;
         const size_t head = mMicHead.load(std::memory_order_relaxed);
         const size_t tail = mMicTail.load(std::memory_order_acquire);
         const size_t space = kMicRingSize - (head - tail);
@@ -274,6 +301,31 @@ float AudioEngine::takeInputPeakDb() {
 float AudioEngine::takeOutputPeakDb() {
     const float peak = mOutPeak.exchange(0.0f);
     return peak > 1e-6f ? 20.0f * std::log10(peak) : -80.0f;
+}
+
+// ---------------- Calibration analyzer ----------------
+
+void AudioEngine::startCalibration() {
+    mCalReset.store(true);
+    mCalActive.store(true);
+}
+
+bool AudioEngine::stopCalibration(float &rmsDb, float &peakDb, float &hfDb, float &seconds) {
+    mCalActive.store(false);
+    const uint32_t seqBefore = mCalPublishSeq.load();
+    mCalPublishReq.store(true);
+    for (int i = 0; i < 60; ++i) {   // up to ~300 ms for the next input callback
+        if (mCalPublishSeq.load() != seqBefore) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    const int64_t frames = mCalFramesPub.load();
+    const int32_t sr = mSampleRate.load();
+    if (frames <= 0 || sr <= 0) return false;
+    rmsDb = mCalRmsDb.load();
+    peakDb = mCalPeakDb.load();
+    hfDb = mCalHfDb.load();
+    seconds = static_cast<float>(frames) / static_cast<float>(sr);
+    return true;
 }
 
 // ---------------- Recording (WAV, writer thread) ----------------

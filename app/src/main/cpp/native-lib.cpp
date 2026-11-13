@@ -137,6 +137,23 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeIsRecording(JNIEnv *, jo
     return e && e->isRecording() ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT void JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeStartCalibration(JNIEnv *, jobject, jlong handle) {
+    if (auto *e = fromHandle(handle)) e->startCalibration();
+}
+
+// Returns float[4]: rmsDb, peakDb, hfRmsDb, seconds (seconds == 0 on failure).
+JNIEXPORT jfloatArray JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeStopCalibration(JNIEnv *env, jobject, jlong handle) {
+    jfloatArray out = env->NewFloatArray(4);
+    jfloat v[4] = {-80.0f, -80.0f, -80.0f, 0.0f};
+    if (auto *e = fromHandle(handle)) {
+        e->stopCalibration(v[0], v[1], v[2], v[3]);
+    }
+    env->SetFloatArrayRegion(out, 0, 4, v);
+    return out;
+}
+
 JNIEXPORT jint JNICALL
 Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetXRunCount(JNIEnv *, jobject, jlong handle) {
     auto *e = fromHandle(handle);

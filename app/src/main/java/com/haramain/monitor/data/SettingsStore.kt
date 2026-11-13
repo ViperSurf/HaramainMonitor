@@ -29,6 +29,13 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.data.map { it[RESUME] ?: true }
     val wasRunning: Flow<Boolean> =
         context.settingsDataStore.data.map { it[WAS_RUNNING] ?: false }
+    /** SAF tree URI of the user's chosen recording folder; "" = app folder only. */
+    val exportFolderUri: Flow<String> =
+        context.settingsDataStore.data.map { it[EXPORT_FOLDER] ?: "" }
+
+    suspend fun setExportFolder(uri: String) {
+        context.settingsDataStore.edit { it[EXPORT_FOLDER] = uri }
+    }
 
     suspend fun setTheme(mode: ThemeMode) {
         context.settingsDataStore.edit { it[THEME] = mode.name }
@@ -68,5 +75,6 @@ class SettingsStore(private val context: Context) {
         val PIN_HASH = stringPreferencesKey("lock_pin_hash")
         val RESUME = booleanPreferencesKey("resume_on_launch")
         val WAS_RUNNING = booleanPreferencesKey("was_running")
+        val EXPORT_FOLDER = stringPreferencesKey("export_folder_uri")
     }
 }

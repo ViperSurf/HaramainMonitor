@@ -15,6 +15,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.GraphicEq
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Speaker
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Warning
@@ -49,6 +52,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,8 +66,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.haramain.monitor.audio.PresetKind
 import com.haramain.monitor.audio.RouteDevice
+import com.haramain.monitor.audio.AutoCalibrator
+import com.haramain.monitor.audio.CalStats
 import com.haramain.monitor.data.ThemeMode
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.haramain.monitor.ui.components.PrecisionControl
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -113,6 +120,23 @@ fun MonitorScreen(
     }
     var showUnlockDialog by remember { mutableStateOf(false) }
     var showSetPinDialog by remember { mutableStateOf(false) }
+    var showAutoDialog by remember { mutableStateOf(false) }
+    val hasAuto by viewModel.hasAuto.collectAsState()
+    val autoPreset by viewModel.autoPreset.collectAsState()
+    val exportFolderUri by viewModel.exportFolderUri.collectAsState()
+    val folderLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            } catch (_: Exception) {}
+            viewModel.setExportFolder(uri.toString())
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -289,9 +313,15 @@ fun MonitorScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Presets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                OutlinedButton(onClick = viewModel::saveCustom, enabled = controlsEnabled) {
-                    Icon(Icons.Filled.Save, contentDescription = null)
-                    Text("Save Custom", modifier = Modifier.padding(start = 6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { showAutoDialog = true }, enabled = controlsEnabled) {
+                        Icon(Icons.Filled.Tune, contentDescription = null)
+                        Text("Auto Setup", modifier = Modifier.padding(start = 6.dp))
+                    }
+                    OutlinedButton(onClick = viewModel::saveCustom, enabled = controlsEnabled) {
+                        Icon(Icons.Filled.Save, contentDescription = null)
+                        Text("Save Custom", modifier = Modifier.padding(start = 6.dp))
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -302,6 +332,15 @@ fun MonitorScreen(
                         enabled = controlsEnabled && (kind != PresetKind.CUSTOM || hasCustom || preset == PresetKind.CUSTOM),
                         onClick = { viewModel.selectPreset(kind) },
                         label = { Text(kind.label) },
+                    )
+                }
+                if (hasAuto) {
+                    val autoNow = autoPreset
+                    FilterChip(
+                        selected = autoNow != null && params.copy(muted = false) == autoNow.copy(muted = false),
+                        enabled = controlsEnabled,
+                        onClick = { viewModel.applySavedAuto() },
+                        label = { Text("Auto") },
                     )
                 }
             }
@@ -476,6 +515,25 @@ fun MonitorScreen(
                 checked = resumeOnLaunch,
                 onCheckedChange = viewModel::setResume,
             )
+            Spacer(Modifier.height(4.dp))
+            Text("Recording folder", style = MaterialTheme.typography.titleSmall)
+            Text(
+                if (exportFolderUri.isBlank()) {
+                    "Recordings stay in the app's private folder."
+                } else {
+                    "A copy of every finished recording is also saved to the folder you picked."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { folderLauncher.launch(null) }) {
+                    Text(if (exportFolderUri.isBlank()) "Choose folder…" else "Change folder")
+                }
+                if (exportFolderUri.isNotBlank()) {
+                    OutlinedButton(onClick = { viewModel.setExportFolder("") }) { Text("Reset") }
+                }
+            }
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (locked) {
@@ -515,6 +573,14 @@ fun MonitorScreen(
             )
         }
         Spacer(Modifier.height(12.dp))
+    }
+
+    if (showAutoDialog) {
+        AutoSetupDialog(
+            viewModel = viewModel,
+            running = running,
+            onDismiss = { showAutoDialog = false },
+        )
     }
 
     if (showUnlockDialog) {
@@ -685,4 +751,121 @@ private fun balanceLabel(v: Float): String = when {
     v < -0.5f -> String.format(Locale.US, "L %.0f%%", -v)
     v > 0.5f -> String.format(Locale.US, "R %.0f%%", v)
     else -> "Center"
+}
+
+/**
+ * Auto Setup wizard: (1) breathe, don't speak — measures the room;
+ * (2) optional voice sample — measures the recitation. Guardrailed math in
+ * [AutoCalibrator] turns the measurements into a preset the user can review
+ * before applying.
+ */
+@Composable
+private fun AutoSetupDialog(
+    viewModel: MonitorViewModel,
+    running: Boolean,
+    onDismiss: () -> Unit,
+) {
+    var stage by remember { mutableStateOf(0) }
+    var noise by remember { mutableStateOf<CalStats?>(null) }
+    var voice by remember { mutableStateOf<CalStats?>(null) }
+    var result by remember { mutableStateOf<AutoCalibrator.Result?>(null) }
+    val scope = rememberCoroutineScope()
+    val currentParams by viewModel.params.collectAsState()
+
+    fun finish() {
+        val n = noise ?: return
+        result = AutoCalibrator.compute(currentParams, n, voice)
+        stage = 4
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Auto Setup") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                when (stage) {
+                    0 -> {
+                        if (!running) {
+                            Text("Start monitoring first — with the mic and output route you'll actually use — then run Auto Setup.")
+                        } else {
+                            Text("Step 1: sit where you'll recite and breathe normally for 3 seconds. Don't speak — this measures your room and your breath.")
+                            Text("Step 2 (optional): recite at your normal volume for 4 seconds, so boost and compression fit your voice.")
+                            Text(
+                                "Auto Setup can never push you into the limiter: boost is capped from your measured peaks with 6 dB of headroom, and suppression is capped at 60.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    1 -> {
+                        Text("Listening to the room… breathe normally, don't speak.")
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                    2 -> {
+                        Text("Room measured: floor ${"%.0f".format(noise?.rmsDb ?: -80f)} dB, breath peaks ${"%.0f".format(noise?.peakDb ?: -80f)} dB.")
+                        Text("Now the voice step — or skip it and keep your current boost.")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = {
+                                stage = 3
+                                scope.launch {
+                                    voice = viewModel.measureStep(4200)
+                                    finish()
+                                }
+                            }) { Text("Start voice step") }
+                            TextButton(onClick = { finish() }) { Text("Skip") }
+                        }
+                    }
+                    3 -> {
+                        Text("Recite now, at your normal volume…")
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                    4 -> {
+                        val r = result
+                        if (r != null) {
+                            val p = r.params
+                            Text(
+                                "Boost ${"%.0f".format(p.micBoostPercent)}% • Gate ${"%.0f".format(p.gateThresholdDb)} dB • " +
+                                    "Suppression ${"%.0f".format(p.noiseSuppress)} • Compressor ${"%.0f".format(p.compressorPercent)} • " +
+                                    "De-Esser ${"%.0f".format(p.deEsserPercent)}",
+                                fontWeight = FontWeight.Bold,
+                            )
+                            r.notes.forEach { note ->
+                                Text(note, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Text(
+                                "Reverb and EQ keep your current flavor. Applying saves this as the Auto preset.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    else -> {
+                        Text("No audio was captured. Check that monitoring is running and the right mic is selected, then try again.")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            when (stage) {
+                0 -> TextButton(
+                    onClick = {
+                        stage = 1
+                        scope.launch {
+                            noise = viewModel.measureStep(3200)
+                            stage = if (noise != null) 2 else 5
+                        }
+                    },
+                    enabled = running,
+                ) { Text("Begin step 1") }
+                4 -> TextButton(onClick = {
+                    result?.let { viewModel.applyAuto(it) }
+                    onDismiss()
+                }) { Text("Apply") }
+                else -> {}
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(if (stage == 4) "Discard" else "Cancel") }
+        },
+    )
 }

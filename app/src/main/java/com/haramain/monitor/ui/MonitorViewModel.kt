@@ -58,6 +58,37 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         context.startService(MicMonitorService.toggleRecordIntent(context))
     }
 
+    // ---- auto calibration ----
+    val autoPreset: StateFlow<AudioParams?> = store.autoPreset
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private val _hasAuto = MutableStateFlow(false)
+    val hasAuto: StateFlow<Boolean> = _hasAuto.asStateFlow()
+
+    /** Measures the raw mic for [durationMs]; null if no audio flowed. */
+    suspend fun measureStep(durationMs: Long): com.haramain.monitor.audio.CalStats? {
+        com.haramain.monitor.audio.NativeAudioEngine.startCalibration()
+        kotlinx.coroutines.delay(durationMs)
+        val a = com.haramain.monitor.audio.NativeAudioEngine.stopCalibration()
+        return if (a[3] > 0.5f) com.haramain.monitor.audio.CalStats(a[0], a[1], a[2]) else null
+    }
+
+    fun applyAuto(result: com.haramain.monitor.audio.AutoCalibrator.Result) {
+        MonitorState.params.value = result.params
+        viewModelScope.launch { store.saveAuto(result.params) }
+    }
+
+    fun applySavedAuto() {
+        val auto = autoPreset.value ?: return
+        MonitorState.params.value = auto.copy(muted = MonitorState.params.value.muted)
+    }
+
+    // ---- recording export folder (SAF tree URI string, "" = app folder only) ----
+    val exportFolderUri: StateFlow<String> = settings.exportFolderUri
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    fun setExportFolder(uri: String) = viewModelScope.launch { settings.setExportFolder(uri) }
+
     /** The router lives in MonitorState so the Service drives the same instance. */
     val router: AudioRouter = MonitorState.router ?: AudioRouter(app).also {
         MonitorState.router = it
@@ -102,6 +133,9 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             store.customPreset.collect { _hasCustom.value = it != null }
         }
+        viewModelScope.launch {
+            store.autoPreset.collect { _hasAuto.value = it != null }
+        }
         // Persist edits + keep preset highlighting honest.
         viewModelScope.launch {
             MonitorState.params.collect { p ->
@@ -132,6 +166,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
             PresetKind.HARAMAIN -> AudioParams.HARAMAIN.copy(muted = current.muted)
             PresetKind.NABAWI -> AudioParams.NABAWI.copy(muted = current.muted)
             PresetKind.STUDIO -> AudioParams.STUDIO_DRY.copy(muted = current.muted)
+            PresetKind.SIMPLE -> AudioParams.SIMPLE_STUDIO.copy(muted = current.muted)
             PresetKind.ORIGINAL -> AudioParams.ORIGINAL.copy(muted = current.muted)
             PresetKind.CUSTOM -> customPreset.value?.copy(muted = current.muted) ?: current
         }
@@ -167,6 +202,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         p.matchesPreset(PresetKind.HARAMAIN) -> PresetKind.HARAMAIN
         p.matchesPreset(PresetKind.NABAWI) -> PresetKind.NABAWI
         p.matchesPreset(PresetKind.STUDIO) -> PresetKind.STUDIO
+        p.matchesPreset(PresetKind.SIMPLE) -> PresetKind.SIMPLE
         p.matchesPreset(PresetKind.ORIGINAL) -> PresetKind.ORIGINAL
         else -> PresetKind.CUSTOM
     }

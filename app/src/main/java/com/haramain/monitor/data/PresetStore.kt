@@ -19,11 +19,18 @@ class PresetStore(private val context: Context) {
     val customPreset: Flow<AudioParams?> =
         context.dataStore.data.map { prefs -> prefs.readParams(PREFIX_CUSTOM) }
 
+    val autoPreset: Flow<AudioParams?> =
+        context.dataStore.data.map { prefs -> prefs.readParams(PREFIX_AUTO) }
+
     val lastParams: Flow<AudioParams> =
         context.dataStore.data.map { prefs -> prefs.readParams(PREFIX_LAST) ?: AudioParams.ORIGINAL }
 
     suspend fun saveCustom(params: AudioParams) {
         context.dataStore.edit { it.writeParams(PREFIX_CUSTOM, params) }
+    }
+
+    suspend fun saveAuto(params: AudioParams) {
+        context.dataStore.edit { it.writeParams(PREFIX_AUTO, params) }
     }
 
     suspend fun saveLast(params: AudioParams) {
@@ -74,6 +81,7 @@ class PresetStore(private val context: Context) {
 
     private companion object {
         const val PREFIX_CUSTOM = "custom_"
+        const val PREFIX_AUTO = "auto_"
         const val PREFIX_LAST = "last_"
     }
 }
