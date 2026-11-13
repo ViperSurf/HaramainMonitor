@@ -3,6 +3,7 @@ package com.haramain.monitor.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -62,6 +63,7 @@ import kotlin.math.roundToInt
  * Below: presets, then one PrecisionControl per DSP parameter.
  * Boots on the user's own Haramain (Original) preset (Room 95, Mix 52, Comp 70, De-Esser 50).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MonitorScreen(
     viewModel: MonitorViewModel,
