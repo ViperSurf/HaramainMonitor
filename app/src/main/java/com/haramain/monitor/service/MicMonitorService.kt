@@ -163,6 +163,11 @@ class MicMonitorService : Service() {
                 MonitorState.latencyMs.value = NativeAudioEngine.latencyMs()
                 MonitorState.xRuns.value = NativeAudioEngine.xRunCount()
                 MonitorState.pitchHz.value = NativeAudioEngine.getPitchHz()
+                val act = NativeAudioEngine.activity()
+                MonitorState.actGate.value = act[0]
+                MonitorState.actSuppress.value = act[1]
+                MonitorState.actLimiter.value = act[2]
+                MonitorState.bufferFrames.value = NativeAudioEngine.bufferFrames()
                 val events = NativeAudioEngine.routeEventCount()
                 if (events != lastRouteEvents) {
                     lastRouteEvents = events

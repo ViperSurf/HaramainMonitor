@@ -44,6 +44,12 @@ public:
     void setUsageGame(bool game);                // BT low-latency output usage hint
     void setPitchEnabled(bool on) { mPitchEnabled.store(on); }
     float getPitchHz() const { return mPitchHz.load(); }
+    void activity(float &gate, float &ns, float &lim) const {
+        gate = mActGate.load(); ns = mActNs.load(); lim = mActLim.load();
+    }
+    int32_t outputBufferFrames() const {
+        return mOutputStream ? mOutputStream->getBufferSizeInFrames() : 0;
+    }
     int64_t stopRecording();                    // returns frames written
     bool isRecording() const { return mRecording.load(); }
 
@@ -82,6 +88,7 @@ private:
     std::atomic<size_t> mPitchHead{0};
     std::atomic<bool> mPitchEnabled{false};
     std::atomic<float> mPitchHz{0.0f};
+    std::atomic<float> mActGate{1.0f}, mActNs{1.0f}, mActLim{1.0f};
     std::atomic<bool> mPitchStop{false};
     std::thread mPitchThread;
     void pitchLoop();

@@ -974,6 +974,10 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
     val bufferMode by viewModel.bufferMode.collectAsState()
     val pitchOn by viewModel.pitchOn.collectAsState()
     val pitchHz by viewModel.pitchHz.collectAsState()
+    val actGate by viewModel.actGate.collectAsState()
+    val actSuppress by viewModel.actSuppress.collectAsState()
+    val actLimiter by viewModel.actLimiter.collectAsState()
+    val bufferFrames by viewModel.bufferFrames.collectAsState()
 
     LevelMeter("Input", inDb, running)
     LevelMeter("Output", outDb, running)
@@ -989,7 +993,7 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
         pathLabel + String.format(
             Locale.US, " • %.0f kHz • ~%.0f ms • %d xruns",
             sampleRate / 1000f, latency, xRuns,
-        )
+        ) + if (bufferFrames > 0) " • buf ${bufferFrames}f" else ""
     } else "Start monitoring to see the live audio path"
     Box(
         modifier = Modifier.clip(RoundedCornerShape(50))
@@ -997,6 +1001,21 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(pillText, style = MaterialTheme.typography.labelLarge)
+    }
+    if (running) {
+        // Processing activity: how hard each stage is working right now
+        // (gain reduction %). Makes the subtle stages visible: stay silent
+        // and Gate pins at 100%; add steady noise and Suppression moves;
+        // shout with high boost and the Limiter engages.
+        Text(
+            String.format(
+                Locale.US, "Activity — Gate %.0f%% • Suppression %.0f%% • Limiter %.0f%%",
+                (1f - actGate) * 100f, (1f - actSuppress) * 100f, (1f - actLimiter) * 100f,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp),
+        )
     }
     Spacer(Modifier.height(10.dp))
 

@@ -18,6 +18,10 @@ object MonitorState {
     val latencyMs = MutableStateFlow(0f)
     val xRuns = MutableStateFlow(0)
     val pitchHz = MutableStateFlow(0f)
+    val actGate = MutableStateFlow(1f)
+    val actSuppress = MutableStateFlow(1f)
+    val actLimiter = MutableStateFlow(1f)
+    val bufferFrames = MutableStateFlow(0)
 
     // Recording (owned by the service; the library UI watches recordingsChanged)
     val isRecording = MutableStateFlow(false)

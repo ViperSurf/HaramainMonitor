@@ -70,6 +70,15 @@ object NativeAudioEngine {
 
     fun getPitchHz(): Float = if (handle != 0L) nativeGetPitchHz(handle) else 0f
 
+    /** (gate, suppressor, limiter) gains of the latest audio block, 0..1. */
+    fun activity(): FloatArray {
+        val out = floatArrayOf(1f, 1f, 1f)
+        if (handle != 0L) nativeGetActivity(handle, out)
+        return out
+    }
+
+    fun bufferFrames(): Int = if (handle != 0L) nativeGetBufferFrames(handle) else 0
+
     /** Stops recording; returns frames written. */
     fun stopRecording(): Long = if (handle != 0L) nativeStopRecording(handle) else 0L
 
@@ -119,6 +128,8 @@ object NativeAudioEngine {
     private external fun nativeSetUsageGame(handle: Long, game: Boolean)
     private external fun nativeSetPitchEnabled(handle: Long, on: Boolean)
     private external fun nativeGetPitchHz(handle: Long): Float
+    private external fun nativeGetActivity(handle: Long, out: FloatArray)
+    private external fun nativeGetBufferFrames(handle: Long): Int
     private external fun nativeStopRecording(handle: Long): Long
     private external fun nativeIsRecording(handle: Long): Boolean
 }

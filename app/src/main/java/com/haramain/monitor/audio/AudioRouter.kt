@@ -165,6 +165,11 @@ class AudioRouter(context: Context) {
      * C++ suppression stage. Safe no-op when unavailable.
      */
     fun attachPlatformEffects() {
+        // Bluetooth (SCO) inputs already pass through the headset + Android
+        // call-path DSP; stacking the platform NoiseSuppressor/AEC on top
+        // makes the voice warble and pump. The C++ chain handles BT mics.
+        val selected = inputs.value.firstOrNull { it.id == selectedInputId.value }
+        if (selected?.isBluetooth == true) return
         val sessionId = NativeAudioEngine.audioSessionId()
         if (sessionId <= 0) return
         try {

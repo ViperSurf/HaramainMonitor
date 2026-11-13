@@ -208,6 +208,18 @@ int main() {
         check("warmth +12 lifts 150 Hz", warm > flat * 1.7, warm / flat);
     }
 
+    // 16) Activity telemetry: a hot, boosted signal must show limiter gain < 1.
+    {
+        DspChain chain; chain.prepare(SR);
+        DspParams p = haramain; p.micBoostPercent = 200.0f; p.wetDryPercent = 0.0f; p.compressorPercent = 0.0f;
+        for (int i = 0; i < 4800; ++i) {
+            float x = 0.9f * std::sin(2.0 * M_PI * 300.0 * i / SR);
+            float l = x, r = x; chain.processFrame(l, r, p);
+        }
+        check("limiter activity observable", chain.lastLimiterGain() < 0.99f, chain.lastLimiterGain());
+        check("gate open for loud voice", chain.lastGateGain() > 0.9f, chain.lastGateGain());
+    }
+
     std::printf(failures == 0 ? "\nALL DSP TESTS PASSED\n" : "\n%d FAILURES\n", failures);
     return failures == 0 ? 0 : 1;
 }

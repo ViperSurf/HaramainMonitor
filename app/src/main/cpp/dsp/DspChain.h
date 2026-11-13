@@ -53,11 +53,14 @@ public:
         // --- 3. Noise Gate ---
         const float gateGain = gate_.processGain(detector, p.gateThresholdDb);
         l *= gateGain; r *= gateGain;
+        lastGateGain_ = gateGain;
 
         // --- 4. Noise Suppression (voice isolation) ---
+        lastNsGain_ = 1.0f;
         if (p.noiseSuppressOn && p.noiseSuppress > 0.01f) {
             const float nsGain = suppressor_.processGain(detector, p.noiseSuppress / 100.0f);
             l *= nsGain; r *= nsGain;
+            lastNsGain_ = nsGain;
         }
 
         // --- 5. De-Esser ---
@@ -110,6 +113,12 @@ public:
 
     float lastInPeak() const { return lastInPeak_; }
     float lastOutPeak() const { return lastOutPeak_; }
+    // Stage gains of the most recent frame (1.0 = untouched) — the service
+    // surfaces their block minima as "processing activity" so the user can
+    // SEE the gate / suppressor / limiter working.
+    float lastGateGain() const { return lastGateGain_; }
+    float lastNsGain() const { return lastNsGain_; }
+    float lastLimiterGain() const { return limiterGain_; }
 
     void reset() {
         staticRemover_.reset(); gate_.reset(); suppressor_.reset();
@@ -146,4 +155,5 @@ private:
     OnePole peakEnv_, relEnv_;
     float limiterGain_ = 1.0f;
     float lastInPeak_ = 0, lastOutPeak_ = 0;
+    float lastGateGain_ = 1.0f, lastNsGain_ = 1.0f;
 };

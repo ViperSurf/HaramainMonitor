@@ -190,4 +190,20 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetPitchHz(JNIEnv *, job
     return e ? e->getPitchHz() : 0.0f;
 }
 
+JNIEXPORT void JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetActivity(JNIEnv *env, jobject, jlong handle, jfloatArray out) {
+    auto *e = fromHandle(handle);
+    if (!e || !out || env->GetArrayLength(out) < 3) return;
+    float g = 1.0f, n = 1.0f, l = 1.0f;
+    e->activity(g, n, l);
+    jfloat v[3] = {g, n, l};
+    env->SetFloatArrayRegion(out, 0, 3, v);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetBufferFrames(JNIEnv *, jobject, jlong handle) {
+    auto *e = fromHandle(handle);
+    return e ? e->outputBufferFrames() : 0;
+}
+
 } // extern "C"

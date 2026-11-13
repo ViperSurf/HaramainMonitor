@@ -66,7 +66,7 @@ bool AudioEngine::openStreams() {
     mBufferMultiplier.store(mUserBursts.load());
     mLastXRunSeen.store(0);
     mOutputStream->setBufferSizeInFrames(burst * mUserBursts.load());
-    mInputStream->setBufferSizeInFrames(mInputStream->getFramesPerBurst() * 2);
+    mInputStream->setBufferSizeInFrames(mInputStream->getFramesPerBurst() * mUserBursts.load());
 
     const int32_t sr = mOutputStream->getSampleRate();
     mSampleRate.store(sr);
@@ -88,6 +88,12 @@ bool AudioEngine::start() {
     if (mInputStream->requestStart() != oboe::Result::OK) { closeStreams(); return false; }
     if (mOutputStream->requestStart() != oboe::Result::OK) { closeStreams(); return false; }
     mRunning.store(true);
+    // Recovery restarts can reach start() without a stop() (stream-error
+    // fallback) — never assign over a joinable thread (std::terminate).
+    if (mPitchThread.joinable()) {
+        mPitchStop.store(true);
+        mPitchThread.join();
+    }
     mPitchStop.store(false);
     mPitchThread = std::thread([this]() { pitchLoop(); });
     LOGI("Engine started");
@@ -133,6 +139,9 @@ void AudioEngine::setBufferMode(int32_t bursts) {
     if (mRunning.load() && mOutputStream) {
         mBufferMultiplier.store(b);
         mOutputStream->setBufferSizeInFrames(mOutputBurst.load() * b);
+        if (mInputStream) {
+            mInputStream->setBufferSizeInFrames(mInputStream->getFramesPerBurst() * b);
+        }
         mLastXRunSeen.store(getXRunCount());   // don't let the grower instantly override the user
         LOGI("Buffer mode set by user: %d bursts", b);
     }
@@ -281,6 +290,7 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
 
     const DspParams p = snapshotParams();
     float inPeak = 0.0f, outPeak = 0.0f;
+    float minGate = 1.0f, minNs = 1.0f, minLim = 1.0f;
     const bool recording = mRecording.load(std::memory_order_relaxed);
     size_t recHead = mRecHead.load(std::memory_order_relaxed);
 
@@ -295,6 +305,9 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
         out[i * 2 + 1] = r;
         inPeak = std::max(inPeak, mChain.lastInPeak());
         outPeak = std::max(outPeak, mChain.lastOutPeak());
+        minGate = std::min(minGate, mChain.lastGateGain());
+        minNs = std::min(minNs, mChain.lastNsGain());
+        minLim = std::min(minLim, mChain.lastLimiterGain());
         if (recording && !mRecDry.load(std::memory_order_relaxed)) {
             const size_t recTail = mRecTail.load(std::memory_order_acquire);
             if (recHead - recTail < kRecRingFrames) {
@@ -309,6 +322,7 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
 
     if (inPeak > mInPeak.load()) mInPeak.store(inPeak);
     if (outPeak > mOutPeak.load()) mOutPeak.store(outPeak);
+    mActGate.store(minGate); mActNs.store(minNs); mActLim.store(minLim);
     return oboe::DataCallbackResult::Continue;
 }
 

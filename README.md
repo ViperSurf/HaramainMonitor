@@ -268,3 +268,24 @@ out from under an active route.
   (note + Hz, toggleable), a 3-band Vocal Tone Sculptor (Warmth 150 Hz /
   Clarity 3 kHz / Air 10 kHz, ±12 dB steppers), and a Practice Recorder
   source toggle (Processed Mix vs Dry Vocal).
+
+## v2.1 — See the processing work; buffer modes with visible effect
+
+Field-report driven (v2.0.1 on a real phone + USB/Bluetooth mics):
+
+- **Processing Activity readout** in the master card: live gain-reduction
+  percentages for Gate, Suppression and Limiter, straight from the native
+  chain. The subtle stages are now provable: silence pins Gate at 100%,
+  steady room noise moves Suppression, hot peaks engage the Limiter.
+- **Buffer modes** now also resize the INPUT buffer, and the telemetry
+  pill shows the live buffer size (`buf 192f`), so Ultra-Low/Balanced/
+  Stable visibly apply. (On most phones one burst is ~4 ms, so the modes
+  trade single-digit-to-~12 ms against glitch resistance; Bluetooth codec
+  latency, 200-400 ms, dwarfs them — that delay is the radio link, not
+  the app.)
+- **Bluetooth mics:** the platform NoiseSuppressor/AEC no longer stack on
+  SCO inputs (the headset + call path already run their own; stacking
+  caused warbling). BT mic bandwidth remains the 16 kHz call channel —
+  a hard platform limit; phone/USB mics are the quality path.
+- Pitch thread is now restart-safe against the stream-error recovery
+  path (join-before-relaunch).
