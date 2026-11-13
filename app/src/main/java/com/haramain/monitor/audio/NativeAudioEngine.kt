@@ -48,6 +48,19 @@ object NativeAudioEngine {
         if (handle != 0L) nativeSetOutputDevice(handle, deviceId)
     }
 
+    /** Called ~1×/s from the service: grows the output buffer if xruns appeared. */
+    fun adaptBuffer() {
+        if (handle != 0L) nativeAdaptBuffer(handle)
+    }
+
+    fun startRecording(path: String): Boolean =
+        handle != 0L && nativeStartRecording(handle, path)
+
+    /** Stops recording; returns frames written. */
+    fun stopRecording(): Long = if (handle != 0L) nativeStopRecording(handle) else 0L
+
+    fun isRecording(): Boolean = handle != 0L && nativeIsRecording(handle)
+
     fun sampleRate(): Int = if (handle != 0L) nativeGetSampleRate(handle) else 0
     fun latencyMs(): Float = if (handle != 0L) nativeGetLatencyMs(handle) else 0f
     fun inputPeakDb(): Float = if (handle != 0L) nativeGetInputPeakDb(handle) else -80f
@@ -75,4 +88,8 @@ object NativeAudioEngine {
     private external fun nativeGetRouteEventCount(handle: Long): Int
     private external fun nativeGetAudioSessionId(handle: Long): Int
     private external fun nativeGetXRunCount(handle: Long): Int
+    private external fun nativeAdaptBuffer(handle: Long)
+    private external fun nativeStartRecording(handle: Long, path: String): Boolean
+    private external fun nativeStopRecording(handle: Long): Long
+    private external fun nativeIsRecording(handle: Long): Boolean
 }

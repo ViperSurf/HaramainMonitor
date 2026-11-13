@@ -165,3 +165,24 @@ hard-left balance silences the right channel; mute is exact zero.
 - `AudioEngine::getAudioSessionId()` uses Oboe's session id (API 31+ AAudio);
   on older devices platform effects simply don't attach and the C++ stages
   carry the full load.
+
+## v1.1 — Phase 1 (latency, recording, tone, lock)
+
+- **Lower latency:** duplex is now input-callback → lock-free ring buffer →
+  output callback (no blocking read in the output callback). The output buffer
+  starts at **one burst** and auto-grows by a burst only if the device reports
+  xruns (checked 1×/s, max 4 bursts). The latency readout is **measured** from
+  the streams' hardware timestamps (buffer math as fallback).
+- **Bass / Treble Boost:** user low-shelf (200 Hz) and high-shelf (9 kHz)
+  trims, ±12 dB, layered on the fixed Haramain EQ voicing.
+- **Recording:** tap of the post-DSP stereo mix written to WAV on a writer
+  thread (app-private `Music/recordings/`). Rec from the app or the
+  notification. The **Library** plays, shares, deletes and exports any WAV to
+  M4A/AAC with the platform encoder. Recordings never leave the phone unless
+  you share them.
+- **Settings lock:** one-tap lock makes all audio controls read-only
+  (Start/Stop, Mute and Rec keep working); optional PIN stored as a SHA-256 hash.
+- **Theme:** System / Dark / Light.
+- **Resume & recovery:** if the app process dies while monitoring, reopening
+  the app resumes automatically (explicit stops don't). If the native engine
+  dies mid-session, the service retries up to 3 times before stopping cleanly.

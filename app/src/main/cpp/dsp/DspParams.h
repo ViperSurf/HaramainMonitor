@@ -13,6 +13,8 @@ struct DspParams {
     float roomSizePercent   = 95.0f;   // 0..100  (Haramain default 95)
     float wetDryPercent     = 52.0f;   // 0..100  (Haramain default 52)
     float balancePercent    = 0.0f;    // -100 (L) .. 0 (C) .. +100 (R)
+    float eqLowGainDb       = 0.0f;    // -12..+12 user low-shelf (bass) trim, added to preset voicing
+    float eqHighGainDb      = 0.0f;    // -12..+12 user high-shelf (treble) trim, added to preset voicing
     float masterGainDb      = 0.0f;    // -24..+12 output trim
     bool  safetyOn          = true;    // Headphone Safety mode
     float safetyCeilingDb   = -3.0f;   // ceiling while safety is ON

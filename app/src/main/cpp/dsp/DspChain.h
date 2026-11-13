@@ -70,6 +70,7 @@ public:
         l *= compGain; r *= compGain;
 
         // --- 7. Haramain EQ + Reverb ---
+        eq_.setUserGains(p.eqLowGainDb, p.eqHighGainDb);
         l = eq_.process(l, 0);
         r = eq_.process(r, 1);
         reverb_.process(l, r, p.roomSizePercent / 100.0f, p.wetDryPercent / 100.0f, l, r);

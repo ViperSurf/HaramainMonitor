@@ -15,10 +15,16 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import android.os.Environment
 import com.haramain.monitor.MainActivity
 import com.haramain.monitor.R
 import com.haramain.monitor.audio.AudioRouter
 import com.haramain.monitor.audio.NativeAudioEngine
+import com.haramain.monitor.data.SettingsStore
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +52,8 @@ class MicMonitorService : Service() {
     private var telemetryJob: Job? = null
     private var focusMuted = false
     private var lastRouteEvents = 0
+    private var recoveryAttempts = 0
+    private val settings by lazy { SettingsStore(this) }
 
     private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
         when (change) {
@@ -70,6 +78,9 @@ class MicMonitorService : Service() {
             ACTION_TOGGLE_MUTE -> {
                 val p = MonitorState.params.value
                 MonitorState.params.value = p.copy(muted = !p.muted)
+            }
+            ACTION_TOGGLE_RECORD -> {
+                if (MonitorState.isRunning.value) toggleRecording()
             }
             ACTION_TOGGLE_MONITOR -> {
                 if (MonitorState.isRunning.value) stopMonitoring() else startMonitoring()
@@ -100,16 +111,35 @@ class MicMonitorService : Service() {
         router.attachPlatformEffects()
         applyParams()
         MonitorState.isRunning.value = true
+        recoveryAttempts = 0
+        scope.launch { settings.setWasRunning(true) }   // cleared only by an explicit stop
         pushForeground()
 
         // Params -> native, continuously (lock-free atomics on the C++ side).
         scope.launch {
             MonitorState.params.collectLatest { applyParams(); pushForeground() }
         }
-        // Telemetry + native route-event watchdog.
+        // Telemetry + native route-event watchdog + buffer health + recovery.
         telemetryJob = scope.launch {
             var inPeak = -80f; var outPeak = -80f
+            var tick = 0
             while (isActive) {
+                if (++tick % 20 == 0) NativeAudioEngine.adaptBuffer()   // ~1×/s xrun check
+                // Signal-loss recovery: engine died underneath us (route
+                // fallback already failed natively) — try to bring it back.
+                if (MonitorState.isRunning.value && !NativeAudioEngine.isRunning()) {
+                    if (recoveryAttempts < 3) {
+                        recoveryAttempts++
+                        if (NativeAudioEngine.start()) {
+                            MonitorState.router?.attachPlatformEffects()
+                            applyParams()
+                            recoveryAttempts = 0
+                        }
+                    } else {
+                        stopMonitoring()
+                        break
+                    }
+                }
                 // Peak-hold with gentle decay for readable meters.
                 inPeak = maxOf(NativeAudioEngine.inputPeakDb(), inPeak - 3f)
                 outPeak = maxOf(NativeAudioEngine.outputPeakDb(), outPeak - 3f)
@@ -129,7 +159,33 @@ class MicMonitorService : Service() {
         }
     }
 
+    // ---- recording ----
+
+    fun toggleRecording() {
+        if (NativeAudioEngine.isRecording()) stopRecordingInternal() else startRecordingInternal()
+        pushForeground()
+    }
+
+    private fun startRecordingInternal() {
+        val dir = recordingsDir(this)
+        val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val file = File(dir, "Haramain_$stamp.wav")
+        if (NativeAudioEngine.startRecording(file.absolutePath)) {
+            MonitorState.isRecording.value = true
+            MonitorState.recordingStartedAtMs.value = System.currentTimeMillis()
+        }
+    }
+
+    private fun stopRecordingInternal() {
+        NativeAudioEngine.stopRecording()
+        MonitorState.isRecording.value = false
+        MonitorState.recordingStartedAtMs.value = 0L
+        MonitorState.recordingsChanged.value += 1
+    }
+
     private fun stopMonitoring() {
+        if (NativeAudioEngine.isRecording()) stopRecordingInternal()
+        scope.launch { settings.setWasRunning(false) }   // explicit stop: no auto-resume
         telemetryJob?.cancel()
         NativeAudioEngine.stop()
         MonitorState.router?.releasePlatformEffects()
@@ -213,12 +269,14 @@ class MicMonitorService : Service() {
         )
         val muted = MonitorState.params.value.muted
         val running = MonitorState.isRunning.value
+        val recording = MonitorState.isRecording.value
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentTitle(if (running) "Monitoring live" else "Haramain Monitor")
             .setContentText(
                 when {
                     !running -> "Tap to open"
+                    recording -> "● REC — recording your recitation"
                     muted -> "Muted — tap Mute again to listen"
                     else -> "Haramain • screen-off monitoring active"
                 },
@@ -230,6 +288,10 @@ class MicMonitorService : Service() {
             .addAction(
                 0, if (muted) "Unmute" else "Mute",
                 serviceAction(ACTION_TOGGLE_MUTE, 1),
+            )
+            .addAction(
+                0, if (recording) "Stop Rec" else "Rec",
+                serviceAction(ACTION_TOGGLE_RECORD, 3),
             )
             .addAction(0, "Stop", serviceAction(ACTION_STOP, 2))
             .build()
@@ -257,8 +319,18 @@ class MicMonitorService : Service() {
         const val ACTION_STOP = "com.haramain.monitor.action.STOP"
         const val ACTION_TOGGLE_MUTE = "com.haramain.monitor.action.TOGGLE_MUTE"
         const val ACTION_TOGGLE_MONITOR = "com.haramain.monitor.action.TOGGLE_MONITOR"
+        const val ACTION_TOGGLE_RECORD = "com.haramain.monitor.action.TOGGLE_RECORD"
         private const val CHANNEL_ID = "live_monitoring"
         private const val NOTIFICATION_ID = 42
+
+        /** App-private recordings folder (no storage permission needed). */
+        fun recordingsDir(context: Context): File {
+            val base = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC) ?: context.filesDir
+            return File(base, "recordings").apply { mkdirs() }
+        }
+
+        fun toggleRecordIntent(context: Context): Intent =
+            Intent(context, MicMonitorService::class.java).setAction(ACTION_TOGGLE_RECORD)
 
         fun startIntent(context: Context): Intent =
             Intent(context, MicMonitorService::class.java).setAction(ACTION_START)

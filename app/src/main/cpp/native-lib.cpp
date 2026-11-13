@@ -8,6 +8,7 @@
 //   0 micBoostPercent   1 staticRemover    2 noiseSuppress   3 gateThresholdDb
 //   4 deEsserPercent    5 compressorPercent 6 roomSizePercent 7 wetDryPercent
 //   8 balancePercent    9 masterGainDb     10 safetyCeilingDb
+//   11 eqLowGainDb     12 eqHighGainDb
 // Booleans travel as separate calls to keep this array purely numeric.
 
 static AudioEngine *fromHandle(jlong handle) {
@@ -49,14 +50,15 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeSetParams(JNIEnv *env, j
                                                                   jboolean suppressOn, jboolean safetyOn,
                                                                   jboolean feedbackRisk, jboolean muted) {
     auto *e = fromHandle(handle);
-    if (!e || !values || env->GetArrayLength(values) < 11) return;
-    jfloat v[11];
-    env->GetFloatArrayRegion(values, 0, 11, v);
+    if (!e || !values || env->GetArrayLength(values) < 13) return;
+    jfloat v[13];
+    env->GetFloatArrayRegion(values, 0, 13, v);
     DspParams p;
     p.micBoostPercent = v[0]; p.staticRemover = v[1]; p.noiseSuppress = v[2];
     p.gateThresholdDb = v[3]; p.deEsserPercent = v[4]; p.compressorPercent = v[5];
     p.roomSizePercent = v[6]; p.wetDryPercent = v[7]; p.balancePercent = v[8];
     p.masterGainDb = v[9]; p.safetyCeilingDb = v[10];
+    p.eqLowGainDb = v[11]; p.eqHighGainDb = v[12];
     p.noiseSuppressOn = suppressOn; p.safetyOn = safetyOn;
     p.feedbackRisk = feedbackRisk; p.muted = muted;
     e->setParams(p);
@@ -106,6 +108,33 @@ JNIEXPORT jint JNICALL
 Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetAudioSessionId(JNIEnv *, jobject, jlong handle) {
     auto *e = fromHandle(handle);
     return e ? e->getAudioSessionId() : -1;
+}
+
+JNIEXPORT void JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeAdaptBuffer(JNIEnv *, jobject, jlong handle) {
+    if (auto *e = fromHandle(handle)) e->adaptBufferIfNeeded();
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeStartRecording(JNIEnv *env, jobject, jlong handle, jstring path) {
+    auto *e = fromHandle(handle);
+    if (!e || !path) return JNI_FALSE;
+    const char *chars = env->GetStringUTFChars(path, nullptr);
+    const bool ok = e->startRecording(chars);
+    env->ReleaseStringUTFChars(path, chars);
+    return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeStopRecording(JNIEnv *, jobject, jlong handle) {
+    auto *e = fromHandle(handle);
+    return e ? static_cast<jlong>(e->stopRecording()) : 0;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeIsRecording(JNIEnv *, jobject, jlong handle) {
+    auto *e = fromHandle(handle);
+    return e && e->isRecording() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL

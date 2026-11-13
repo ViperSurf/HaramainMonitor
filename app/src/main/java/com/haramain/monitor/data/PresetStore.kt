@@ -45,6 +45,8 @@ class PresetStore(private val context: Context) {
             roomSizePercent = this[floatPreferencesKey(prefix + "room")] ?: 95f,
             wetDryPercent = this[floatPreferencesKey(prefix + "mix")] ?: 52f,
             balancePercent = this[floatPreferencesKey(prefix + "balance")] ?: 0f,
+            eqLowGainDb = this[floatPreferencesKey(prefix + "eqlow")] ?: 0f,
+            eqHighGainDb = this[floatPreferencesKey(prefix + "eqhigh")] ?: 0f,
             masterGainDb = this[floatPreferencesKey(prefix + "master")] ?: 0f,
             safetyOn = this[booleanPreferencesKey(prefix + "safetyOn")] ?: true,
             safetyCeilingDb = this[floatPreferencesKey(prefix + "ceiling")] ?: -3f,
@@ -63,6 +65,8 @@ class PresetStore(private val context: Context) {
         this[floatPreferencesKey(prefix + "room")] = p.roomSizePercent
         this[floatPreferencesKey(prefix + "mix")] = p.wetDryPercent
         this[floatPreferencesKey(prefix + "balance")] = p.balancePercent
+        this[floatPreferencesKey(prefix + "eqlow")] = p.eqLowGainDb
+        this[floatPreferencesKey(prefix + "eqhigh")] = p.eqHighGainDb
         this[floatPreferencesKey(prefix + "master")] = p.masterGainDb
         this[booleanPreferencesKey(prefix + "safetyOn")] = p.safetyOn
         this[floatPreferencesKey(prefix + "ceiling")] = p.safetyCeilingDb

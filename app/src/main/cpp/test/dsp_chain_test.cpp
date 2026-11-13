@@ -84,6 +84,28 @@ int main() {
         check("balance L100: right silent, left audible", maxR < 1e-3 && maxL > 0.05, maxR);
     }
 
+    // 5b) EQ user shelves: +12 dB bass trim must lift a 120 Hz tone through
+    //     the full chain, relative to the flat trim.
+    {
+        auto runTone = [&](float eqLow) {
+            DspChain chain; chain.prepare(SR);
+            DspParams p = haramain;
+            p.wetDryPercent = 0.0f; p.noiseSuppressOn = false;
+            p.gateThresholdDb = -80.0f; p.safetyOn = false; p.eqLowGainDb = eqLow;
+            double sumSq = 0; int n = 0;
+            for (int i = 0; i < 48000; ++i) {
+                float x = 0.1f * (float)std::sin(2 * M_PI * 120.0 * i / SR);
+                float l = x, r = x; chain.processFrame(l, r, p);
+                if (i > 24000) { sumSq += (double)l * l; ++n; }
+            }
+            return std::sqrt(sumSq / n);
+        };
+        const double rmsBoost = runTone(12.0f);
+        const double rmsFlat = runTone(0.0f);
+        const double liftDb = 20.0 * std::log10(rmsBoost / std::max(1e-9, rmsFlat));
+        check("bass shelf +12 dB lifts 120 Hz by >6 dB", liftDb > 6.0, liftDb);
+    }
+
     // 6a) Typical phone-mic hiss floor (-58 dB RMS) with the default preset:
     //     the gate (threshold -45) must crush it.
     {

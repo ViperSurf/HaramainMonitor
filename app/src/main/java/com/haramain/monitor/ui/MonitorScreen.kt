@@ -13,9 +13,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.HeadsetMic
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Save
@@ -23,6 +29,7 @@ import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -39,7 +46,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +62,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.haramain.monitor.audio.PresetKind
 import com.haramain.monitor.audio.RouteDevice
+import com.haramain.monitor.data.ThemeMode
+import kotlinx.coroutines.delay
 import com.haramain.monitor.ui.components.PrecisionControl
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -85,6 +96,23 @@ fun MonitorScreen(
     val preset by viewModel.activePreset.collectAsState()
     val hasCustom by viewModel.hasCustom.collectAsState()
     val feedbackRisk by viewModel.feedbackRisk.collectAsState()
+    val locked by viewModel.settingsLocked.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
+    val hasPin by viewModel.hasPin.collectAsState()
+    val resumeOnLaunch by viewModel.resumeOnLaunch.collectAsState()
+    val isRecording by viewModel.isRecording.collectAsState()
+    val recordingStartedAt by viewModel.recordingStartedAtMs.collectAsState()
+    val controlsEnabled = !locked
+
+    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(isRecording) {
+        while (isRecording) {
+            nowMs = System.currentTimeMillis()
+            delay(500)
+        }
+    }
+    var showUnlockDialog by remember { mutableStateOf(false) }
+    var showSetPinDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -103,6 +131,22 @@ fun MonitorScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = if (running) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+
+        if (locked) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Row(
+                    Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                    Text(
+                        "Settings are locked — controls are read-only. Start/Stop, Mute and Rec still work.",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
             }
         }
 
@@ -127,6 +171,7 @@ fun MonitorScreen(
                 devices = inputs,
                 selectedId = selIn,
                 onSelect = viewModel::selectInput,
+                enabled = controlsEnabled,
             )
             Spacer(Modifier.height(8.dp))
             DevicePicker(
@@ -135,6 +180,7 @@ fun MonitorScreen(
                 devices = outputs,
                 selectedId = selOut,
                 onSelect = viewModel::selectOutput,
+                enabled = controlsEnabled,
             )
             if (feedbackRisk && params.safetyOn) {
                 Spacer(Modifier.height(8.dp))
@@ -192,6 +238,49 @@ fun MonitorScreen(
             )
         }
 
+        // ---------- Recording ----------
+        SectionCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text("Recording", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        when {
+                            isRecording -> {
+                                val secs = ((nowMs - recordingStartedAt) / 1000).coerceAtLeast(0)
+                                String.format(Locale.US, "● REC %d:%02d — saving WAV", secs / 60, secs % 60)
+                            }
+                            running -> "Tap Rec to capture the processed audio (WAV)"
+                            else -> "Start monitoring to record"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { viewModel.toggleRecording(context) },
+                        enabled = running,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.FiberManualRecord, contentDescription = null)
+                        Text(if (isRecording) "Stop" else "Rec", modifier = Modifier.padding(start = 6.dp))
+                    }
+                    OutlinedButton(onClick = {
+                        context.startActivity(Intent(context, RecordingsActivity::class.java))
+                    }) {
+                        Icon(Icons.Filled.LibraryMusic, contentDescription = null)
+                        Text("Library", modifier = Modifier.padding(start = 6.dp))
+                    }
+                }
+            }
+        }
+
         // ---------- Presets ----------
         SectionCard {
             Row(
@@ -200,7 +289,7 @@ fun MonitorScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Presets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                OutlinedButton(onClick = viewModel::saveCustom) {
+                OutlinedButton(onClick = viewModel::saveCustom, enabled = controlsEnabled) {
                     Icon(Icons.Filled.Save, contentDescription = null)
                     Text("Save Custom", modifier = Modifier.padding(start = 6.dp))
                 }
@@ -210,7 +299,7 @@ fun MonitorScreen(
                 PresetKind.entries.forEach { kind ->
                     FilterChip(
                         selected = preset == kind,
-                        enabled = kind != PresetKind.CUSTOM || hasCustom || preset == PresetKind.CUSTOM,
+                        enabled = controlsEnabled && (kind != PresetKind.CUSTOM || hasCustom || preset == PresetKind.CUSTOM),
                         onClick = { viewModel.selectPreset(kind) },
                         label = { Text(kind.label) },
                     )
@@ -233,6 +322,7 @@ fun MonitorScreen(
                 defaultValue = 50f,
                 format = { String.format(Locale.US, "%.0f%%  (+%.1f dB)", it, it / 100f * 12f) },
                 onValueChange = { v -> viewModel.update { it.copy(micBoostPercent = v) } },
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "Static Remover",
@@ -240,11 +330,13 @@ fun MonitorScreen(
                 defaultValue = 60f,
                 format = { pct(it) },
                 onValueChange = { v -> viewModel.update { it.copy(staticRemover = v) } },
+                enabled = controlsEnabled,
             )
             ToggleRow(
                 label = "Noise Suppression (Voice Isolation)",
                 checked = params.noiseSuppressOn,
                 onCheckedChange = { on -> viewModel.update { it.copy(noiseSuppressOn = on) } },
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "Suppression Depth",
@@ -252,7 +344,7 @@ fun MonitorScreen(
                 defaultValue = 40f,
                 format = { pct(it) },
                 onValueChange = { v -> viewModel.update { it.copy(noiseSuppress = v) } },
-                enabled = params.noiseSuppressOn,
+                enabled = controlsEnabled && params.noiseSuppressOn,
             )
             PrecisionControl(
                 label = "Noise Gate Threshold",
@@ -260,6 +352,7 @@ fun MonitorScreen(
                 defaultValue = -45f,
                 format = { db(it) },
                 onValueChange = { v -> viewModel.update { it.copy(gateThresholdDb = v) } },
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "De-Esser",
@@ -267,6 +360,7 @@ fun MonitorScreen(
                 defaultValue = 50f,
                 format = { pct(it) },
                 onValueChange = { v -> viewModel.update { it.copy(deEsserPercent = v) } },
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "Compressor",
@@ -274,6 +368,7 @@ fun MonitorScreen(
                 defaultValue = 70f,
                 format = { pct(it) },
                 onValueChange = { v -> viewModel.update { it.copy(compressorPercent = v) } },
+                enabled = controlsEnabled,
             )
         }
 
@@ -285,6 +380,7 @@ fun MonitorScreen(
                 defaultValue = 95f,
                 format = { pct(it) },
                 onValueChange = { v -> viewModel.update { it.copy(roomSizePercent = v) } },
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "Reverb Wet / Dry Mix",
@@ -292,6 +388,7 @@ fun MonitorScreen(
                 defaultValue = 52f,
                 format = { pct(it) },
                 onValueChange = { v -> viewModel.update { it.copy(wetDryPercent = v) } },
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "Stereo Balance",
@@ -300,6 +397,7 @@ fun MonitorScreen(
                 format = { balanceLabel(it) },
                 onValueChange = { v -> viewModel.update { it.copy(balancePercent = v) } },
                 showCenterSnap = true,
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "Master Gain",
@@ -307,6 +405,25 @@ fun MonitorScreen(
                 defaultValue = 0f,
                 format = { db(it) },
                 onValueChange = { v -> viewModel.update { it.copy(masterGainDb = v) } },
+                enabled = controlsEnabled,
+            )
+            PrecisionControl(
+                label = "Bass Boost (Low Frequencies)",
+                value = params.eqLowGainDb, valueRange = -12f..12f, step = 0.5f,
+                defaultValue = 0f,
+                format = { db(it) },
+                onValueChange = { v -> viewModel.update { it.copy(eqLowGainDb = v) } },
+                enabled = controlsEnabled,
+                showCenterSnap = true,
+            )
+            PrecisionControl(
+                label = "Treble Boost (High Frequencies)",
+                value = params.eqHighGainDb, valueRange = -12f..12f, step = 0.5f,
+                defaultValue = 0f,
+                format = { db(it) },
+                onValueChange = { v -> viewModel.update { it.copy(eqHighGainDb = v) } },
+                enabled = controlsEnabled,
+                showCenterSnap = true,
             )
         }
 
@@ -317,6 +434,7 @@ fun MonitorScreen(
                 checked = params.safetyOn,
                 onCheckedChange = { on -> viewModel.update { it.copy(safetyOn = on) } },
                 icon = Icons.Filled.NotificationsActive,
+                enabled = controlsEnabled,
             )
             Text(
                 if (params.safetyOn) {
@@ -334,7 +452,56 @@ fun MonitorScreen(
                 defaultValue = -3f,
                 format = { db(it) },
                 onValueChange = { v -> viewModel.update { it.copy(safetyCeilingDb = v) } },
-                enabled = params.safetyOn,
+                enabled = controlsEnabled && params.safetyOn,
+            )
+        }
+
+        // ---------- App settings ----------
+        SectionCard {
+            Text("App Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Text("Theme", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(6.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ThemeMode.entries.forEach { mode ->
+                    FilterChip(
+                        selected = themeMode == mode,
+                        onClick = { viewModel.setTheme(mode) },
+                        label = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                    )
+                }
+            }
+            ToggleRow(
+                label = "Resume monitoring when app reopens",
+                checked = resumeOnLaunch,
+                onCheckedChange = viewModel::setResume,
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (locked) {
+                    Button(onClick = {
+                        if (hasPin) showUnlockDialog = true
+                        else viewModel.unlockSettings("") {}
+                    }) {
+                        Icon(Icons.Filled.LockOpen, contentDescription = null)
+                        Text("Unlock settings", modifier = Modifier.padding(start = 6.dp))
+                    }
+                } else {
+                    Button(onClick = viewModel::lockSettings) {
+                        Icon(Icons.Filled.Lock, contentDescription = null)
+                        Text("Lock settings", modifier = Modifier.padding(start = 6.dp))
+                    }
+                    OutlinedButton(onClick = { showSetPinDialog = true }) {
+                        Text(if (hasPin) "Change PIN" else "Set PIN (optional)")
+                    }
+                }
+            }
+            Text(
+                "Locking makes every audio control read-only — handy when someone else holds the phone or it's in your pocket. " +
+                    "The PIN is optional; without one, unlocking is one tap.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
             )
         }
 
@@ -348,6 +515,65 @@ fun MonitorScreen(
             )
         }
         Spacer(Modifier.height(12.dp))
+    }
+
+    if (showUnlockDialog) {
+        var pin by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showUnlockDialog = false },
+            title = { Text("Unlock settings") },
+            text = {
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { pin = it },
+                    label = { Text("PIN") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.unlockSettings(pin) { ok ->
+                        if (ok) showUnlockDialog = false
+                        else Toast.makeText(context, "Wrong PIN", Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text("Unlock") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUnlockDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showSetPinDialog) {
+        var newPin by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showSetPinDialog = false },
+            title = { Text("Set lock PIN") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = newPin,
+                        onValueChange = { newPin = it },
+                        label = { Text("New PIN (blank removes it)") },
+                        singleLine = true,
+                    )
+                    Text(
+                        "Stored only as a hash on this device.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.setPin(newPin.ifEmpty { null })
+                    showSetPinDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSetPinDialog = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 
@@ -367,6 +593,7 @@ private fun ToggleRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     icon: ImageVector? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -380,7 +607,7 @@ private fun ToggleRow(
             }
             Text(label, style = MaterialTheme.typography.titleSmall)
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
 
@@ -419,6 +646,7 @@ private fun DevicePicker(
     devices: List<RouteDevice>,
     selectedId: Int,
     onSelect: (Int) -> Unit,
+    enabled: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selected = devices.firstOrNull { it.id == selectedId }
@@ -428,6 +656,7 @@ private fun DevicePicker(
             value = display,
             onValueChange = {},
             readOnly = true,
+            enabled = enabled,
             label = { Text(label) },
             leadingIcon = { Icon(icon, contentDescription = null) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },

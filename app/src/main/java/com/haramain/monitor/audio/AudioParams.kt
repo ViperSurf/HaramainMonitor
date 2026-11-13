@@ -17,6 +17,8 @@ data class AudioParams(
     val roomSizePercent: Float = 95f,     // 0..100
     val wetDryPercent: Float = 52f,       // 0..100
     val balancePercent: Float = 0f,       // -100..+100
+    val eqLowGainDb: Float = 0f,          // -12..+12 bass shelf trim
+    val eqHighGainDb: Float = 0f,         // -12..+12 treble shelf trim
     val masterGainDb: Float = 0f,         // -24..+12
     val safetyOn: Boolean = true,
     val safetyCeilingDb: Float = -3f,     // -12..0
@@ -25,7 +27,7 @@ data class AudioParams(
     fun toFloatArray(): FloatArray = floatArrayOf(
         micBoostPercent, staticRemover, noiseSuppress, gateThresholdDb,
         deEsserPercent, compressorPercent, roomSizePercent, wetDryPercent,
-        balancePercent, masterGainDb, safetyCeilingDb,
+        balancePercent, masterGainDb, safetyCeilingDb, eqLowGainDb, eqHighGainDb,
     )
 
     companion object {

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Recordings live in getExternalFilesDir(MUSIC)/recordings and filesDir -->
+    <external-files-path name="recordings_ext" path="Music/recordings/" />
+    <files-path name="recordings_int" path="recordings/" />
+    <external-files-path name="music_ext" path="Music/" />
+    <files-path name="files_root" path="." />
+</paths>

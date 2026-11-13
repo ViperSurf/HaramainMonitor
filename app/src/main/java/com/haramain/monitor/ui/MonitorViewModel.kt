@@ -11,6 +11,8 @@ import com.haramain.monitor.audio.PresetKind
 import com.haramain.monitor.audio.RouteDevice
 import com.haramain.monitor.audio.matchesPreset
 import com.haramain.monitor.data.PresetStore
+import com.haramain.monitor.data.SettingsStore
+import com.haramain.monitor.data.ThemeMode
 import com.haramain.monitor.service.MicMonitorService
 import com.haramain.monitor.service.MonitorState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,38 @@ import kotlinx.coroutines.launch
 class MonitorViewModel(app: Application) : AndroidViewModel(app) {
 
     private val store = PresetStore(app)
+    private val settings = SettingsStore(app)
+
+    // ---- app settings (theme / lock / resume) ----
+    val themeMode: StateFlow<ThemeMode> = settings.themeMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
+    val settingsLocked: StateFlow<Boolean> = settings.settingsLocked
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val hasPin: StateFlow<Boolean> = settings.hasPin
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val resumeOnLaunch: StateFlow<Boolean> = settings.resumeOnLaunch
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun setTheme(mode: ThemeMode) = viewModelScope.launch { settings.setTheme(mode) }
+    fun setResume(enabled: Boolean) = viewModelScope.launch { settings.setResume(enabled) }
+    fun lockSettings() = viewModelScope.launch { settings.setLocked(true) }
+    fun setPin(pin: String?) = viewModelScope.launch { settings.setPin(pin) }
+
+    fun unlockSettings(pin: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val ok = settings.verifyPin(pin)
+            if (ok) settings.setLocked(false)
+            onResult(ok)
+        }
+    }
+
+    // ---- recording ----
+    val isRecording: StateFlow<Boolean> = MonitorState.isRecording
+    val recordingStartedAtMs: StateFlow<Long> = MonitorState.recordingStartedAtMs
+
+    fun toggleRecording(context: Context) {
+        context.startService(MicMonitorService.toggleRecordIntent(context))
+    }
 
     /** The router lives in MonitorState so the Service drives the same instance. */
     val router: AudioRouter = MonitorState.router ?: AudioRouter(app).also {

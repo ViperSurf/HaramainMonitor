@@ -18,6 +18,11 @@ object MonitorState {
     val latencyMs = MutableStateFlow(0f)
     val xRuns = MutableStateFlow(0)
 
+    // Recording (owned by the service; the library UI watches recordingsChanged)
+    val isRecording = MutableStateFlow(false)
+    val recordingStartedAtMs = MutableStateFlow(0L)
+    val recordingsChanged = MutableStateFlow(0)
+
     /** Set by the service while it lives; null when monitoring is stopped. */
     @Volatile
     var router: AudioRouter? = null
