@@ -75,6 +75,7 @@ bool AudioEngine::openStreams() {
 
     const int32_t sr = mOutputStream->getSampleRate();
     mSampleRate.store(sr);
+    mFadeCoeff = 1.0f - std::exp(-1.0f / (static_cast<float>(sr) * 0.040f));
     mChain.prepare(static_cast<double>(sr));
     mMicHead.store(0); mMicTail.store(0);
     LOGI("Streams open: sr=%d burst=%d inDev=%d outDev=%d", sr, burst,
@@ -89,6 +90,8 @@ void AudioEngine::closeStreams() {
 
 bool AudioEngine::start() {
     if (mRunning.load()) return true;
+    mFadeGain = 0.0f;
+    mFadeTarget.store(0.0f);
     if (!openStreams()) return false;
     if (mInputStream->requestStart() != oboe::Result::OK) { closeStreams(); return false; }
     if (mOutputStream->requestStart() != oboe::Result::OK) { closeStreams(); return false; }
@@ -101,11 +104,14 @@ bool AudioEngine::start() {
     }
     mPitchStop.store(false);
     mPitchThread = std::thread([this]() { pitchLoop(); });
+    mFadeTarget.store(1.0f);   // ease in over ~40 ms — no start pop
     LOGI("Engine started");
     return true;
 }
 
 void AudioEngine::stop() {
+    mFadeTarget.store(0.0f);   // ease out before the streams close — no stop pop
+    std::this_thread::sleep_for(std::chrono::milliseconds(60));
     if (mRecording.load()) stopRecording();
     mRunning.store(false);
     mPitchStop.store(true);
@@ -316,6 +322,9 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
         }
         float r = l;                                    // dual-mono
         mChain.processFrame(l, r, p);
+        mFadeGain += (mFadeTarget.load(std::memory_order_relaxed) - mFadeGain) * mFadeCoeff;
+        l *= mFadeGain;
+        r *= mFadeGain;
         out[i * 2] = l;
         out[i * 2 + 1] = r;
         inPeak = std::max(inPeak, mChain.lastInPeak());

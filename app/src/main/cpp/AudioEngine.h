@@ -116,6 +116,11 @@ private:
     std::shared_ptr<oboe::AudioStream> mOutputStream;
 
     std::atomic<bool> mRunning{false};
+    // Start/stop anti-pop fade: target set by start()/stop(), the gain
+    // itself lives on the callback thread and eases toward it (~40 ms).
+    std::atomic<float> mFadeTarget{0.0f};
+    float mFadeGain = 0.0f;
+    float mFadeCoeff = 0.0005f;
     std::atomic<int32_t> mInputDeviceId{oboe::kUnspecified};
     std::atomic<int32_t> mOutputDeviceId{oboe::kUnspecified};
     std::atomic<int32_t> mSampleRate{0};

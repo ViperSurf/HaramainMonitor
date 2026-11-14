@@ -403,3 +403,12 @@ Two real offenders, both fired by slider drags, both fixed:
   with data intact. Debug builds of Compose apps carry heavy runtime
   overhead; this is the single biggest UI-smoothness lever available.
   R8/minify remains a separate future step (JNI keep-rules).
+
+## v2.8 — Tile long-press opens the app; anti-pop fades
+
+- Long-pressing the Quick Settings tile now opens Haramain Monitor
+  itself (QS_TILE_PREFERENCES intent-filter on MainActivity) instead
+  of the system's App info page.
+- Start and stop ease through a ~40 ms master fade in the engine, so
+  monitoring no longer begins or ends with a click/pop. The fade is
+  applied before the recording tap, so recordings fade too.
