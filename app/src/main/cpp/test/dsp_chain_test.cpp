@@ -2,6 +2,7 @@
 #include "../dsp/DspChain.h"
 #include "../dsp/NoiseGate.h"
 #include "../dsp/NoiseSuppressor.h"
+#include "../dsp/HowlDetector.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -286,6 +287,55 @@ int main() {
             if (l != r) mono = false;
         }
         check("reverb width 0 makes the wet field mono", mono, 0);
+    }
+
+    {
+        // v3.0: howl detector fires on a sustained pure tone...
+        HowlDetector det; det.prepare(SR);
+        std::vector<float> tone(4096);
+        for (size_t i = 0; i < tone.size(); ++i)
+            tone[i] = 0.35f * std::sin(2 * M_PI * 2300.0 * double(i) / SR);
+        float found = 0;
+        for (int call = 0; call < 8 && found == 0; ++call) found = det.analyze(tone.data(), tone.size());
+        check("howl detector catches a 2.3 kHz ring", found > 2100 && found < 2550, found);
+    }
+    {
+        // ...and stays silent through a held, vibrato'd vowel stack.
+        HowlDetector det; det.prepare(SR);
+        bool any = false;
+        std::vector<float> win(4096);
+        for (int w = 0; w < 25; ++w) {
+            for (size_t i = 0; i < win.size(); ++i) {
+                const double t = (double(w) * 1024 + double(i)) / SR;
+                const double f0 = 140.0 + 3.0 * std::sin(2 * M_PI * 5.0 * t);
+                double ph = 2 * M_PI * f0 * t;
+                double v = std::sin(ph) + 0.5 * std::sin(2 * ph) + 0.33 * std::sin(3 * ph)
+                         + 0.25 * std::sin(4 * ph) + 0.2 * std::sin(5 * ph);
+                win[i] = 0.3f * float(v);
+            }
+            if (det.analyze(win.data(), win.size()) != 0.0f) any = true;
+        }
+        check("howl detector ignores a held vowel", !any, any ? 1 : 0);
+    }
+    {
+        // v3.0: a chain notch cuts its frequency and leaves others alone.
+        auto rmsAt = [&](double freq, float notchHz) {
+            DspChain c; c.prepare(SR);
+            DspParams p; p.micBoostPercent = 0; p.staticRemover = 0; p.noiseSuppressOn = false;
+            p.gateThresholdDb = -80; p.roomSizePercent = 0; p.wetDryPercent = 0;
+            p.notchFreq[0] = notchHz;
+            double acc = 0; int n = 0;
+            for (int i = 0; i < 48000; ++i) {
+                float l = 0.3f * std::sin(2 * M_PI * freq * i / SR), r = l;
+                c.processFrame(l, r, p);
+                if (i > 24000) { acc += double(l) * l; ++n; }
+            }
+            return std::sqrt(acc / n);
+        };
+        double cut = rmsAt(1000, 1000) / rmsAt(1000, 0);
+        double pass = rmsAt(300, 1000) / rmsAt(300, 0);
+        check("notch cuts its own frequency hard", cut < 0.35, cut);
+        check("notch leaves 300 Hz alone", pass > 0.8 && pass < 1.25, pass);
     }
 
     std::printf(failures == 0 ? "\nALL DSP TESTS PASSED\n" : "\n%d FAILURES\n", failures);

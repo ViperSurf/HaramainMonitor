@@ -192,6 +192,8 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     val actGate: StateFlow<Float> = MonitorState.actGate
     val actSuppress: StateFlow<Float> = MonitorState.actSuppress
     val actLimiter: StateFlow<Float> = MonitorState.actLimiter
+    val actNotchHz: StateFlow<Float> = MonitorState.actNotchHz
+    val sessionStartMs: StateFlow<Long> = MonitorState.sessionStartMs
     val bufferFrames: StateFlow<Int> = MonitorState.bufferFrames
 
     fun setBufferMode(bursts: Int) = viewModelScope.launch { settings.setBufferMode(bursts) }
@@ -344,6 +346,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
             PresetKind.SIMPLE -> AudioParams.SIMPLE_STUDIO.copy(muted = current.muted)
             PresetKind.STONE_DOME -> AudioParams.STONE_DOME.copy(muted = current.muted)
             PresetKind.LOCAL_HALL -> AudioParams.LOCAL_HALL.copy(muted = current.muted)
+            PresetKind.LEAD -> AudioParams.LEAD.copy(muted = current.muted)
             PresetKind.CUSTOM -> customPreset.value?.copy(muted = current.muted) ?: current
         }
         _activePreset.value = kind

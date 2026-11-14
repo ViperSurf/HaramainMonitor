@@ -125,6 +125,7 @@ class MicMonitorService : Service() {
         applyParams()
         MonitorState.isRunning.value = true
         sessionStartMs = System.currentTimeMillis()
+        MonitorState.sessionStartMs.value = sessionStartMs
         MonitorTileService.requestUpdate(this)
         recoveryAttempts = 0
         scope.launch { settings.setWasRunning(true) }   // cleared only by an explicit stop
@@ -237,6 +238,7 @@ class MicMonitorService : Service() {
                 MonitorState.actGate.value = act[0]
                 MonitorState.actSuppress.value = act[1]
                 MonitorState.actLimiter.value = act[2]
+                MonitorState.actNotchHz.value = act.getOrElse(3) { 0f }
                 MonitorState.bufferFrames.value = NativeAudioEngine.bufferFrames()
                 val events = NativeAudioEngine.routeEventCount()
                 if (events != lastRouteEvents) {
@@ -303,6 +305,8 @@ class MicMonitorService : Service() {
     }
 
     private fun stopMonitoring() {
+        MonitorState.sessionStartMs.value = 0L
+        MonitorState.actNotchHz.value = 0f
         val startedAt = sessionStartMs
         sessionStartMs = 0L
         if (startedAt > 0) {

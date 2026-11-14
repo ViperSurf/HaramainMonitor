@@ -47,6 +47,15 @@ public:
     float getPitchHz() const { return mPitchHz.load(); }
     // Worst (lowest) stage gains since the previous call; reading resets
     // the accumulators, so a 50 ms UI poll captures every dip in between.
+    void activity(float &gate, float &ns, float &lim, float &notchHz, float &notchCount) {
+        int count = 0; float hz = 0.0f;
+        for (int s = 0; s < 4; ++s) {
+            const float f = aNotchFreq[s].load();
+            if (f > 1.0f) { ++count; if (hz == 0.0f) hz = f; }
+        }
+        notchHz = hz; notchCount = static_cast<float>(count);
+        activity(gate, ns, lim);
+    }
     void activity(float &gate, float &ns, float &lim) {
         gate = mActGate.load(); ns = mActNs.load(); lim = mActLim.load();
         mActGate.store(1.0f); mActNs.store(1.0f); mActLim.store(1.0f);
@@ -96,6 +105,9 @@ private:
     std::atomic<bool> mPitchStop{false};
     std::thread mPitchThread;
     void pitchLoop();
+    std::thread mGuardThread;
+    std::atomic<bool> mGuardStop{false};
+    void guardLoop();
     std::thread mRecThread;
     std::string mRecPath;
     std::atomic<int64_t> mRecFramesWritten{0};
@@ -137,6 +149,10 @@ private:
             aBtDuck{50.0f}, aWarmth{0.0f}, aClarity{0.0f}, aAir{0.0f},
             aEq60{0.0f}, aEq250{0.0f}, aEq1k{0.0f}, aEq4k{0.0f}, aEq12k{0.0f},
             aRevDamp{50.0f}, aRevWidth{100.0f};
+    std::atomic<int> aMonitorMode{0};
+    std::atomic<bool> aHowlGuardOn{true};
+    std::atomic<float> aNotchFreq[4]{};
+    std::atomic<long long> aNotchStampMs[4]{};
     std::atomic<bool> aSuppressOn{true}, aSafetyOn{true}, aFeedbackRisk{false}, aMuted{false},
             aBypass{false},
             aBtDuckOn{false};

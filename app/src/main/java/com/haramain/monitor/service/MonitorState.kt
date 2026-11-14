@@ -21,6 +21,8 @@ object MonitorState {
     val actGate = MutableStateFlow(1f)
     val actSuppress = MutableStateFlow(1f)
     val actLimiter = MutableStateFlow(1f)
+    val actNotchHz = MutableStateFlow(0f)
+    val sessionStartMs = MutableStateFlow(0L)
     val bufferFrames = MutableStateFlow(0)
 
     // Recording (owned by the service; the library UI watches recordingsChanged)

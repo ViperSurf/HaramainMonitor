@@ -292,6 +292,19 @@ fun MonitorScreen(
                 onSelect = viewModel::selectOutput,
                 enabled = controlsEnabled,
             )
+            Spacer(Modifier.height(10.dp))
+            Text("Monitor Ears", style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                InfoTip("Monitor Ears", "Stereo is normal. Left Only or Right Only sends your voice (summed mono) to just that ear — for leading, so the other ear stays open to the room. Recordings are always full stereo.")
+                listOf(0 to "Stereo", 1 to "Left Only", 2 to "Right Only").forEach { (mode, label) ->
+                    FilterChip(
+                        selected = params.monitorMode == mode,
+                        onClick = { viewModel.update { p -> p.copy(monitorMode = mode) } },
+                        label = { Text(label) },
+                        enabled = controlsEnabled,
+                    )
+                }
+            }
             if (feedbackRisk && params.safetyOn) {
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -572,6 +585,7 @@ fun MonitorScreen(
                     PresetKind.NABAWI -> "Masjid an-Nabawi, Madinah: warm domes and carpet soften the echo — rounder, gentler and a little more intimate than al-Haram."
                     PresetKind.STONE_DOME -> "Historic Stone Dome: an old stone prayer hall. Clear, focused reflections off hard walls, medium in size."
                     PresetKind.LOCAL_HALL -> "Local Masjid Hall: a carpeted community masjid. Modest warmth, short reflections, close and familiar."
+                    PresetKind.LEAD -> "Lead (Imam): voiced for leading prayer. The voice stays in front, steady and clear, with the space underneath it rather than around it. Pairs well with single-ear monitoring in Hardware Routing."
                     PresetKind.STUDIO -> "Studio Dry: no room at all — your voice exactly as the mic hears it. Best for checking your real sound and for clean recordings."
                     PresetKind.SIMPLE -> "Simple Studio: a whisper of room and a light polish. Clean and natural, like a good small studio."
                     PresetKind.CUSTOM -> "Custom: your own settings live here. Save Custom keeps them; loading a preset replaces them."
@@ -764,7 +778,7 @@ fun MonitorScreen(
         }
 
         // ---------- Graphic EQ ----------
-        ExpandableSection(title = "Graphic EQ", expanded = openSections["geq"] == true, onExpandedChange = { viewModel.setSectionOpen("geq", it) }, help = "Five fixed bands that shape your voice BEFORE it enters the space. Cut 250 Hz to remove boxiness from a small room; lift 4 kHz for clarity; 60 Hz is mostly rumble — cutting it cleans recordings.") {
+        ExpandableSection(title = "Graphic EQ", expanded = openSections["geq"] == true, onExpandedChange = { viewModel.setSectionOpen("geq", it) }, help = "Five fixed bands that shape your voice BEFORE it enters the space. Cut 250 Hz to remove boxiness from a small room; lift 4 kHz for clarity; 60 Hz is mostly rumble — cutting it cleans recordings. New to EQ? The Bass and Treble sliders in Haramain Space cover most of this in simpler terms.") {
             PrecisionControl(
                 label = "60 Hz — Rumble",
                 value = params.eqBand60Db, valueRange = -12f..12f, step = 0.5f,
@@ -820,6 +834,13 @@ fun MonitorScreen(
                 checked = params.safetyOn,
                 onCheckedChange = { on -> viewModel.update { it.copy(safetyOn = on) } },
                 icon = Icons.Filled.NotificationsActive,
+                enabled = controlsEnabled,
+            )
+            ToggleRow(
+                label = "Feedback Guard (Anti-Howl)",
+                help = "Listens for the rising ring of speaker feedback and cuts a narrow notch at exactly that frequency before it becomes a howl. Built for leading or practicing on a speaker; harmless on headphones. An active notch shows in the Activity line and lifts itself after about 12 quiet seconds.",
+                checked = params.howlGuardOn,
+                onCheckedChange = { on -> viewModel.update { it.copy(howlGuardOn = on) } },
                 enabled = controlsEnabled,
             )
             Text(
@@ -1179,6 +1200,8 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
     val actGate by viewModel.actGate.collectAsState()
     val actSuppress by viewModel.actSuppress.collectAsState()
     val actLimiter by viewModel.actLimiter.collectAsState()
+    val actNotchHz by viewModel.actNotchHz.collectAsState()
+    val sessionStartMs by viewModel.sessionStartMs.collectAsState()
     val bufferFrames by viewModel.bufferFrames.collectAsState()
 
     LevelMeter("Input", inDb, running)
@@ -1213,11 +1236,20 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
             String.format(
                 Locale.US, "Activity — Gate %.0f%% • Suppression %.0f%% • Limiter %.0f%%",
                 (1f - actGate) * 100f, (1f - actSuppress) * 100f, (1f - actLimiter) * 100f,
-            ),
+            ) + if (actNotchHz > 0f) String.format(Locale.US, " • Howl notch @ %.1f kHz", actNotchHz / 1000f) else "",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 6.dp),
         )
+        if (sessionStartMs > 0) {
+            val elapsedSec = ((System.currentTimeMillis() - sessionStartMs) / 1000).coerceAtLeast(0)
+            Text(
+                String.format(Locale.US, "Session %d:%02d", elapsedSec / 60, elapsedSec % 60),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
     }
     Spacer(Modifier.height(10.dp))
 

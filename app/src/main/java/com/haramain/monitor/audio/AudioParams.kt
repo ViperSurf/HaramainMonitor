@@ -34,6 +34,8 @@ data class AudioParams(
     val eqBand12kDb: Float = 0f,
     val revDampingPercent: Float = 50f,   // reverb tail damping; 50 == classic fixed value
     val revWidthPercent: Float = 100f,    // reverb stereo width; 100 == original
+    val monitorMode: Int = 0,             // 0 stereo, 1 left ear only, 2 right ear only
+    val howlGuardOn: Boolean = true,      // anti-feedback notch guard
     val muted: Boolean = false,
 ) {
     fun toFloatArray(): FloatArray = floatArrayOf(
@@ -42,7 +44,8 @@ data class AudioParams(
         balancePercent, masterGainDb, safetyCeilingDb, eqLowGainDb, eqHighGainDb,
         btDuckPercent, eqWarmthDb, eqClarityDb, eqAirDb,
         eqBand60Db, eqBand250Db, eqBand1kDb, eqBand4kDb, eqBand12kDb,
-        revDampingPercent, revWidthPercent,
+        revDampingPercent, revWidthPercent, monitorMode.toFloat(),
+        if (howlGuardOn) 1f else 0f,
     )
 
     companion object {
@@ -88,6 +91,17 @@ data class AudioParams(
             roomSizePercent = 0f, wetDryPercent = 0f,
         )
 
+        /**
+         * Lead (Imam): voiced for leading — the voice stays in front,
+         * steady and clear, with the space underneath it rather than
+         * around it.
+         */
+        val LEAD = AudioParams(
+            micBoostPercent = 50f, staticRemover = 60f, noiseSuppress = 35f,
+            gateThresholdDb = -50f, deEsserPercent = 45f, compressorPercent = 65f,
+            roomSizePercent = 60f, wetDryPercent = 30f,
+        )
+
         /** Simple Studio: clean, nearly dry, podcast-style — for plain speech. */
         val SIMPLE_STUDIO = AudioParams(
             micBoostPercent = 50f, staticRemover = 60f, noiseSuppress = 45f,
@@ -102,6 +116,7 @@ enum class PresetKind(val label: String) {
     NABAWI("Masjid an-Nabawi"),
     STONE_DOME("Historic Stone Dome"),
     LOCAL_HALL("Local Masjid Hall"),
+    LEAD("Lead (Imam)"),
     STUDIO("Studio Dry"),
     SIMPLE("Simple Studio"),
     CUSTOM("Custom"),
@@ -112,6 +127,7 @@ fun AudioParams.matchesPreset(kind: PresetKind): Boolean = when (kind) {
     PresetKind.NABAWI -> copy(muted = false) == AudioParams.NABAWI.copy(muted = false)
     PresetKind.STONE_DOME -> copy(muted = false) == AudioParams.STONE_DOME.copy(muted = false)
     PresetKind.LOCAL_HALL -> copy(muted = false) == AudioParams.LOCAL_HALL.copy(muted = false)
+    PresetKind.LEAD -> copy(muted = false) == AudioParams.LEAD.copy(muted = false)
     PresetKind.STUDIO -> copy(muted = false) == AudioParams.STUDIO_DRY.copy(muted = false)
     PresetKind.SIMPLE -> copy(muted = false) == AudioParams.SIMPLE_STUDIO.copy(muted = false)
     PresetKind.CUSTOM -> false

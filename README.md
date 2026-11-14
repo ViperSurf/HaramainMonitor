@@ -432,3 +432,27 @@ Two real offenders, both fired by slider drags, both fixed:
   gains a monochrome layer for Android 13 themed icons and a round
   variant. (The mark itself shipped with the original build.)
 - Param block grows to 24 floats; no new JNI functions.
+
+## v3.0 — Latency cut, Lead preset, single-ear monitor, anti-howl guard
+
+- Latency: the platform NoiseSuppressor never attaches anymore (the
+  native chain suppresses better) and the platform AEC attaches only
+  on feedback-risk (speaker) routes. On USB/wired headphone routes the
+  record path is now effect-free. The AEC handle is also stored and
+  released properly now (it previously leaked per attach).
+- Lead (Imam) preset: voice in front (Room 60 / Mix 30, Comp 65,
+  Gate -50), space underneath.
+- Monitor Ears (Hardware Routing): Stereo / Left Only / Right Only —
+  summed mono to one ear so the other stays open to the room.
+  Recordings are always full stereo. Param block grows to 26 floats.
+- Feedback Guard (Safety section, default on): a worker-thread FFT
+  detector (4096-pt, Hann) watches for a sustained narrowband ring;
+  the engine cuts a -15 dB notch (Q 24, up to 4 slots) at that exact
+  frequency, shown in the Activity line, self-expiring after ~12 s.
+  A harmonic veto keeps held vowels from tripping it. Host tests:
+  catches a 2.3 kHz ring at 2296.9 Hz (nearest FFT bin), ignores a
+  vibrato vowel stack, notch cuts 0.178x at center and passes 0.999x
+  at 300 Hz. Full host suite 22/22.
+- Session timer under the meters, feeding the practice log.
+- Bass/Treble stay: they are the beginner-friendly layer over the
+  Graphic EQ, whose help text now says so.

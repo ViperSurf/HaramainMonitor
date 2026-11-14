@@ -13,6 +13,8 @@
 //   13 btDuckPercent   14 eqWarmthDb      15 eqClarityDb    16 eqAirDb
 //   17 eqBand60Db      18 eqBand250Db     19 eqBand1kDb     20 eqBand4kDb
 //   21 eqBand12kDb     22 revDampingPercent  23 revWidthPercent
+//   24 monitorMode (0 stereo, 1 left only, 2 right only)
+//   25 howlGuardOn (1/0)
 // Booleans travel as separate args to keep this array purely numeric.
 
 static AudioEngine *fromHandle(jlong handle) {
@@ -56,11 +58,12 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeSetParams(JNIEnv *env, j
                                                                   jboolean btDuckOn) {
     auto *e = fromHandle(handle);
     if (!e || !values || env->GetArrayLength(values) < 13) return;
-    jfloat v[24] = {};
-    const jsize n = std::min<jsize>(env->GetArrayLength(values), 24);
+    jfloat v[26] = {};
+    const jsize n = std::min<jsize>(env->GetArrayLength(values), 26);
     env->GetFloatArrayRegion(values, 0, n, v);
     if (n < 17) v[13] = 50.0f;   // older 13-float callers: duck amount default
     if (n < 24) { v[22] = 50.0f; v[23] = 100.0f; }   // pre-v2.9 callers: classic damping/width
+    if (n < 26) v[25] = 1.0f;   // pre-v3.0 callers: howl guard on
     DspParams p;
     p.micBoostPercent = v[0]; p.staticRemover = v[1]; p.noiseSuppress = v[2];
     p.gateThresholdDb = v[3]; p.deEsserPercent = v[4]; p.compressorPercent = v[5];
@@ -72,6 +75,8 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeSetParams(JNIEnv *env, j
     p.eqBand60Db = v[17]; p.eqBand250Db = v[18]; p.eqBand1kDb = v[19];
     p.eqBand4kDb = v[20]; p.eqBand12kDb = v[21];
     p.revDampingPercent = v[22]; p.revWidthPercent = v[23];
+    p.monitorMode = static_cast<int>(v[24]);
+    p.howlGuardOn = v[25] > 0.5f;
     p.btDuckOn = btDuckOn;
     p.noiseSuppressOn = suppressOn; p.safetyOn = safetyOn;
     p.feedbackRisk = feedbackRisk; p.muted = muted;
@@ -200,10 +205,11 @@ JNIEXPORT void JNICALL
 Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetActivity(JNIEnv *env, jobject, jlong handle, jfloatArray out) {
     auto *e = fromHandle(handle);
     if (!e || !out || env->GetArrayLength(out) < 3) return;
-    float g = 1.0f, n = 1.0f, l = 1.0f;
-    e->activity(g, n, l);
-    jfloat v[3] = {g, n, l};
-    env->SetFloatArrayRegion(out, 0, 3, v);
+    float g = 1.0f, n = 1.0f, l = 1.0f, hz = 0.0f, cnt = 0.0f;
+    e->activity(g, n, l, hz, cnt);
+    jfloat v[5] = {g, n, l, hz, cnt};
+    const jsize m = std::min<jsize>(env->GetArrayLength(out), 5);
+    env->SetFloatArrayRegion(out, 0, m, v);
 }
 
 JNIEXPORT jint JNICALL

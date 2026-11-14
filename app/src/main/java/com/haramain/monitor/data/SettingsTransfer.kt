@@ -134,6 +134,8 @@ object SettingsTransfer {
         j.put("eqBand12kDb", eqBand12kDb.toDouble())
         j.put("revDampingPercent", revDampingPercent.toDouble())
         j.put("revWidthPercent", revWidthPercent.toDouble())
+        j.put("monitorMode", monitorMode)
+        j.put("howlGuardOn", howlGuardOn)
         return j
     }
 
@@ -171,6 +173,8 @@ object SettingsTransfer {
             eqBand12kDb = f("eqBand12kDb", d.eqBand12kDb),
             revDampingPercent = f("revDampingPercent", d.revDampingPercent),
             revWidthPercent = f("revWidthPercent", d.revWidthPercent),
+            monitorMode = if (j.has("monitorMode")) j.getInt("monitorMode") else d.monitorMode,
+            howlGuardOn = b("howlGuardOn", d.howlGuardOn),
             muted = false,
         )
     }

@@ -31,6 +31,9 @@ struct DspParams {
     float eqBand12kDb       = 0.0f;
     float revDampingPercent = 50.0f;   // reverb tail HF damping; 50 == the classic fixed value
     float revWidthPercent   = 100.0f;  // reverb stereo width; 100 == full (original behavior)
+    float notchFreq[4]      = {0, 0, 0, 0};  // anti-howl notches, set by the guard thread (0 = empty)
+    int   monitorMode       = 0;             // 0 stereo, 1 left ear only, 2 right ear only
+    bool  howlGuardOn       = true;
     bool  muted             = false;
     bool  bypass            = false;   // A/B compare: raw mic, brickwall only (momentary, never persisted)
 };

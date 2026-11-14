@@ -89,6 +89,7 @@ class AudioRouter(context: Context) {
     }
 
     private var platformNs: NoiseSuppressor? = null
+    private var platformAec: AcousticEchoCanceler? = null
 
     // Reference-counted: both the ViewModel (pickers) and the Service
     // (hot-plug safety) listen; the platform callback unregisters only when
@@ -165,19 +166,21 @@ class AudioRouter(context: Context) {
      * C++ suppression stage. Safe no-op when unavailable.
      */
     fun attachPlatformEffects() {
-        // Bluetooth (SCO) inputs already pass through the headset + Android
-        // call-path DSP; stacking the platform NoiseSuppressor/AEC on top
-        // makes the voice warble and pump. The C++ chain handles BT mics.
+        // Latency policy (v3.0): the platform NoiseSuppressor NEVER
+        // attaches — the native chain suppresses better, and the platform
+        // effect costs real record-path latency on USB/wired routes.
+        // The platform AEC attaches ONLY on feedback-risk routes (a
+        // speaker in the room), where echo is real; on headphones it is
+        // pure cost. Bluetooth inputs stay effect-free (v2.1: warbling).
+        releasePlatformEffects()
         val selected = inputs.value.firstOrNull { it.id == selectedInputId.value }
         if (selected?.isBluetooth == true) return
+        if (!isFeedbackRisk()) return
         val sessionId = NativeAudioEngine.audioSessionId()
         if (sessionId <= 0) return
         try {
-            if (NoiseSuppressor.isAvailable()) {
-                platformNs = NoiseSuppressor.create(sessionId)?.apply { enabled = true }
-            }
             if (AcousticEchoCanceler.isAvailable()) {
-                AcousticEchoCanceler.create(sessionId)?.apply { enabled = true }
+                platformAec = AcousticEchoCanceler.create(sessionId)?.apply { enabled = true }
             }
         } catch (_: Exception) {
             // Some OEM HALs throw on effect creation; the C++ chain still covers us.
@@ -187,6 +190,8 @@ class AudioRouter(context: Context) {
     fun releasePlatformEffects() {
         try { platformNs?.release() } catch (_: Exception) {}
         platformNs = null
+        try { platformAec?.release() } catch (_: Exception) {}
+        platformAec = null
     }
 
     // ---- mapping ----

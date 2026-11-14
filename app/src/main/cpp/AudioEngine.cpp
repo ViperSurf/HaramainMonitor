@@ -1,4 +1,5 @@
 #include "AudioEngine.h"
+#include "dsp/HowlDetector.h"
 #include <android/log.h>
 #include <algorithm>
 #include <cmath>
@@ -104,6 +105,9 @@ bool AudioEngine::start() {
     }
     mPitchStop.store(false);
     mPitchThread = std::thread([this]() { pitchLoop(); });
+    if (mGuardThread.joinable()) { mGuardStop.store(true); mGuardThread.join(); }
+    mGuardStop.store(false);
+    mGuardThread = std::thread([this]() { guardLoop(); });
     mFadeTarget.store(1.0f);   // ease in over ~40 ms — no start pop
     LOGI("Engine started");
     return true;
@@ -116,6 +120,9 @@ void AudioEngine::stop() {
     mRunning.store(false);
     mPitchStop.store(true);
     if (mPitchThread.joinable()) mPitchThread.join();
+    mGuardStop.store(true);
+    if (mGuardThread.joinable()) mGuardThread.join();
+    for (int s = 0; s < 4; ++s) aNotchFreq[s].store(0.0f);
     mPitchHz.store(0.0f);
     closeStreams();
 }
@@ -170,6 +177,53 @@ void AudioEngine::setUsageGame(bool game) {
     }
 }
 
+void AudioEngine::guardLoop() {
+    HowlDetector det;
+    int preparedSr = 0;
+    std::vector<float> buf(4096);
+    auto nowMs = []() {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    };
+    while (!mGuardStop.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(80));
+        if (!mRunning.load()) continue;
+        if (!aHowlGuardOn.load()) {
+            for (int s = 0; s < 4; ++s) aNotchFreq[s].store(0.0f);
+            continue;
+        }
+        const int32_t sr = mSampleRate.load();
+        if (sr <= 0) continue;
+        if (sr != preparedSr) { det.prepare(sr); preparedSr = sr; }
+        const size_t head = mPitchHead.load(std::memory_order_acquire);
+        if (head < buf.size()) continue;
+        for (size_t i = 0; i < buf.size(); ++i)
+            buf[i] = mPitchRing[(head - buf.size() + i) & (kPitchHist - 1)];
+        const long long now = nowMs();
+        const float f = det.analyze(buf.data(), buf.size());
+        if (f > 0.0f) {
+            // Refresh a slot already near this frequency, else take a
+            // free slot, else evict the oldest.
+            int slot = -1; long long oldest = now;
+            for (int s = 0; s < 4; ++s) {
+                const float cur = aNotchFreq[s].load();
+                if (cur > 1.0f && std::fabs(cur - f) < 0.03f * f) { slot = s; break; }
+                if (cur <= 1.0f) { slot = s; break; }
+                if (aNotchStampMs[s].load() < oldest) { oldest = aNotchStampMs[s].load(); slot = s; }
+            }
+            if (slot >= 0) {
+                aNotchFreq[slot].store(f);
+                aNotchStampMs[slot].store(now);
+            }
+        }
+        // Notches expire after 12 s without re-detection.
+        for (int s = 0; s < 4; ++s) {
+            if (aNotchFreq[s].load() > 1.0f && now - aNotchStampMs[s].load() > 12000)
+                aNotchFreq[s].store(0.0f);
+        }
+    }
+}
+
 void AudioEngine::pitchLoop() {
     std::vector<float> buf(4096);
     while (!mPitchStop.load()) {
@@ -216,6 +270,7 @@ void AudioEngine::setParams(const DspParams &p) {
     aEq60.store(p.eqBand60Db); aEq250.store(p.eqBand250Db); aEq1k.store(p.eqBand1kDb);
     aEq4k.store(p.eqBand4kDb); aEq12k.store(p.eqBand12kDb);
     aRevDamp.store(p.revDampingPercent); aRevWidth.store(p.revWidthPercent);
+    aMonitorMode.store(p.monitorMode); aHowlGuardOn.store(p.howlGuardOn);
 }
 
 DspParams AudioEngine::snapshotParams() const {
@@ -235,6 +290,8 @@ DspParams AudioEngine::snapshotParams() const {
     p.eqBand60Db = aEq60.load(); p.eqBand250Db = aEq250.load(); p.eqBand1kDb = aEq1k.load();
     p.eqBand4kDb = aEq4k.load(); p.eqBand12kDb = aEq12k.load();
     p.revDampingPercent = aRevDamp.load(); p.revWidthPercent = aRevWidth.load();
+    p.monitorMode = aMonitorMode.load(); p.howlGuardOn = aHowlGuardOn.load();
+    for (int s = 0; s < 4; ++s) p.notchFreq[s] = aNotchFreq[s].load();
     return p;
 }
 
@@ -331,8 +388,11 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
         mFadeGain += (mFadeTarget.load(std::memory_order_relaxed) - mFadeGain) * mFadeCoeff;
         l *= mFadeGain;
         r *= mFadeGain;
-        out[i * 2] = l;
-        out[i * 2 + 1] = r;
+        float oL = l, oR = r;
+        if (p.monitorMode == 1) { oL = (l + r) * 0.5f; oR = 0.0f; }
+        else if (p.monitorMode == 2) { oR = (l + r) * 0.5f; oL = 0.0f; }
+        out[i * 2] = oL;
+        out[i * 2 + 1] = oR;
         inPeak = std::max(inPeak, mChain.lastInPeak());
         outPeak = std::max(outPeak, mChain.lastOutPeak());
         minGate = std::min(minGate, mChain.lastGateGain());

@@ -117,6 +117,19 @@ public:
         l = mono * panL * 1.41421356f;
         r = mono * panR * 1.41421356f;
 
+        // --- 8b. Anti-howl notches (frequencies set by the guard thread) ---
+        for (int s = 0; s < 4; ++s) {
+            const float f = p.notchFreq[s];
+            if (f < 1.0f) continue;
+            if (std::fabs(f - notchFreq_[s]) > 1.0f) {
+                notchFreq_[s] = f;
+                for (int ch = 0; ch < 2; ++ch)
+                    notch_[ch][s].set(Biquad::Type::Peaking, sampleRate_, f, 24.0, -15.0);
+            }
+            l = notch_[0][s].process(l);
+            r = notch_[1][s].process(r);
+        }
+
         // --- 9. Safety ceiling + Brickwall limiter ---
         float ceilingDb = -0.5f;                                // hard brickwall, safety off
         if (p.safetyOn) ceilingDb = std::min(ceilingDb, p.safetyCeilingDb);   // default -3 dBFS
@@ -140,6 +153,8 @@ public:
     void reset() {
         staticRemover_.reset(); gate_.reset(); suppressor_.reset();
         deEsser_.reset(); compressor_.reset(); eq_.reset(); geq_.reset(); reverb_.reset();
+        for (int ch = 0; ch < 2; ++ch)
+            for (int s = 0; s < 4; ++s) notch_[ch][s].reset();
         limiterGain_ = 1.0f;
     }
 
@@ -169,6 +184,8 @@ private:
     Compressor compressor_;
     ParametricEq eq_;
     GraphicEq geq_;
+    Biquad notch_[2][4];
+    float notchFreq_[4] = {0, 0, 0, 0};
     Freeverb reverb_;
     OnePole peakEnv_, relEnv_;
     float limiterGain_ = 1.0f;
