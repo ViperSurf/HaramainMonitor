@@ -212,6 +212,16 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetActivity(JNIEnv *env,
     env->SetFloatArrayRegion(out, 0, m, v);
 }
 
+/** Writes [inputDeviceId, outputDeviceId] — the devices the streams
+ *  actually opened on. Used by the disconnect automation (v3.4). */
+JNIEXPORT void JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetRouteDeviceIds(JNIEnv *env, jobject, jlong handle, jintArray out) {
+    auto *e = fromHandle(handle);
+    if (!e || !out || env->GetArrayLength(out) < 2) return;
+    jint v[2] = {e->inputDeviceId(), e->outputDeviceId()};
+    env->SetIntArrayRegion(out, 0, 2, v);
+}
+
 JNIEXPORT jint JNICALL
 Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetBufferFrames(JNIEnv *, jobject, jlong handle) {
     auto *e = fromHandle(handle);

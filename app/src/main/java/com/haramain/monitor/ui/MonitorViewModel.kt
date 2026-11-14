@@ -190,8 +190,6 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     val autoStopMinutes: StateFlow<Int> = settings.autoStopMinutes
         .stateIn(viewModelScope, SharingStarted.Eagerly, 10)
     val pitchHz: StateFlow<Float> = MonitorState.pitchHz
-    val actCompDb: StateFlow<Float> = MonitorState.actCompDb
-    val actDeEssDb: StateFlow<Float> = MonitorState.actDeEssDb
     val actGate: StateFlow<Float> = MonitorState.actGate
     val actSuppress: StateFlow<Float> = MonitorState.actSuppress
     val actLimiter: StateFlow<Float> = MonitorState.actLimiter
@@ -228,6 +226,16 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun setStopOnDisconnect(on: Boolean) = viewModelScope.launch { settings.setStopOnDisconnect(on) }
+
+    val automationScope: StateFlow<Int> = settings.automationScope
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+
+    fun setAutomationScope(s: Int) = viewModelScope.launch { settings.setAutomationScope(s) }
+
+    val autoTrim: StateFlow<Boolean> = settings.autoTrim
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setAutoTrim(on: Boolean) = viewModelScope.launch { settings.setAutoTrim(on) }
 
     val practiceSummary: StateFlow<String> = settings.practiceStats
         .map { s ->
@@ -320,10 +328,12 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             MonitorState.params.debounce(600).collect { p -> store.saveLast(p) }
         }
-        // Auto-start when the SELECTED mic connects (v2.9): diff the
-        // input set; an absent -> present transition of the selected
-        // device starts monitoring (only while this process is alive,
-        // which covers the app-open / recently-used cases).
+        // Auto-start on connect (v2.9; scope-aware, device-keyed since
+        // v3.4): a NEW input device starts monitoring when it matches
+        // the automation scope. Keyed to devices, not the picker
+        // selection — on the system-default route the selection stays
+        // -1 while the engine happily uses the USB mic, which is why
+        // the old selected-id rule never fired in real use.
         viewModelScope.launch {
             var prevIds: Set<Int>? = null
             router.inputs.collect { devices ->
@@ -332,8 +342,19 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
                 prevIds = ids
                 try {
                     if (prev != null && !MonitorState.isRunning.value && settings.autoStartMic.first()) {
+                        val scope = settings.automationScope.first()
                         val sel = router.selectedInputId.value
-                        if (sel in ids && sel !in prev) {
+                        val arrived = devices.filter { it.id !in prev }
+                        val fire = arrived.any { d ->
+                            when (scope) {
+                                1 -> !d.isInternal
+                                2 -> d.isBluetooth
+                                3 -> d.rawType == android.media.AudioDeviceInfo.TYPE_USB_DEVICE ||
+                                    d.rawType == android.media.AudioDeviceInfo.TYPE_USB_HEADSET
+                                else -> d.id == sel || (sel == -1 && !d.isInternal)
+                            }
+                        }
+                        if (fire) {
                             val ctx = getApplication<Application>()
                             try {
                                 ContextCompat.startForegroundService(ctx, MicMonitorService.startIntent(ctx))

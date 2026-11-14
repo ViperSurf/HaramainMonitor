@@ -131,9 +131,11 @@ fun MonitorScreen(
     val resumeOnLaunch by viewModel.resumeOnLaunch.collectAsState()
     val autoStopMinutes by viewModel.autoStopMinutes.collectAsState()
     val autoRecord by viewModel.autoRecord.collectAsState()
+    val autoTrim by viewModel.autoTrim.collectAsState()
     val voiceActivated by viewModel.voiceActivated.collectAsState()
     val autoStartMic by viewModel.autoStartMic.collectAsState()
     val stopOnDisconnect by viewModel.stopOnDisconnect.collectAsState()
+    val automationScope by viewModel.automationScope.collectAsState()
     val practiceSummary by viewModel.practiceSummary.collectAsState()
     val practiceGoalMin by viewModel.practiceGoalMin.collectAsState()
     val perMicMemory by viewModel.perMicMemory.collectAsState()
@@ -515,6 +517,12 @@ fun MonitorScreen(
                 checked = autoRecord,
                 onCheckedChange = viewModel::setAutoRecord,
                 help = "Starts recording by itself whenever monitoring starts, using the source above. Turning it on while already monitoring starts a recording right away. Auto-stop never interrupts a recording. Pairs well with Trim in the Library: record hands-free, then cut the dead air off both ends of each take with one tap.",
+            )
+            ToggleRow(
+                label = "Auto-trim finished recordings",
+                checked = autoTrim,
+                onCheckedChange = viewModel::setAutoTrim,
+                help = "After each recording finishes, the edge silence is trimmed automatically in the background and saved as a second file with _trimmed at the end of its name. The original recording is never changed. Works with Record automatically and voice-activated recording too.",
             )
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -920,6 +928,23 @@ fun MonitorScreen(
                 checked = stopOnDisconnect,
                 onCheckedChange = viewModel::setStopOnDisconnect,
             )
+            Spacer(Modifier.height(6.dp))
+            Text("Auto start/stop applies to", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Which connection the two switches above watch. 'This mic' means the microphone actually in use, even on the system-default route.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0 to "This mic", 1 to "Any external", 2 to "Bluetooth", 3 to "USB").forEach { (s, label) ->
+                    FilterChip(
+                        selected = automationScope == s,
+                        onClick = { viewModel.setAutomationScope(s) },
+                        label = { Text(label) },
+                    )
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Text("Practice log", style = MaterialTheme.typography.titleSmall)
             Text(
@@ -1216,8 +1241,6 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
     val bufferMode by viewModel.bufferMode.collectAsState()
     val pitchOn by viewModel.pitchOn.collectAsState()
     val pitchHz by viewModel.pitchHz.collectAsState()
-    val actCompDb by viewModel.actCompDb.collectAsState()
-    val actDeEssDb by viewModel.actDeEssDb.collectAsState()
     val actGate by viewModel.actGate.collectAsState()
     val actSuppress by viewModel.actSuppress.collectAsState()
     val actLimiter by viewModel.actLimiter.collectAsState()
@@ -1261,11 +1284,6 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 6.dp),
-        )
-        Text(
-            String.format(Locale.US, "Compressor −%.1f dB • De-esser −%.1f dB", actCompDb, -actDeEssDb),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (sessionStartMs > 0) {
             val elapsedSec = ((System.currentTimeMillis() - sessionStartMs) / 1000).coerceAtLeast(0)

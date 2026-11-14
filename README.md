@@ -28,9 +28,11 @@ Safety ON (−3 dBFS ceiling).
   50, Gate -45), Masjid an-Nabawi, Historic Stone Dome, Local Masjid
   Hall, Lead (Imam), Studio Dry, Simple Studio, Auto (calibration),
   Custom (your saved tweaks).
-- Processing Activity readouts under the meters: Gate %, Suppression %,
-  Limiter %, Compressor dB, De-esser dB, howl-notch indicator — the
-  subtle stages are visible even when they're inaudible by design.
+- Processing Activity readout under the meters: Gate %, Suppression %,
+  Limiter % and the howl-notch indicator. (Compressor and De-esser
+  work silently — readouts for them were tried in v3.3 and removed in
+  v3.4: at real levels they sit near zero and added confusion, not
+  information.)
 - Hold-to-hear-raw A/B compare ("hold to hear raw mic").
 - Anti-howl Feedback Guard: FFT detector + harmonic veto parks a narrow
   notch on a ringing frequency before it becomes a howl (12 s expiry).
@@ -49,10 +51,13 @@ Safety ON (−3 dBFS ceiling).
 - Teach-it-once mic naming: rename entries, group the phone's duplicate
   entries into physical mics ("Bottom Mic 1/2", "Back Mic 1/2/3"), hide
   entries you never use.
-- Auto-start when your mic connects (App Settings; if Android blocks a
-  background start you get a tap-to-start notification instead).
-- Auto-stop when your mic or output disconnects (3 s grace for re-plug
-  or re-pick) — a dropped mic never silently becomes the phone mic.
+- Auto-start when your mic connects / auto-stop when your mic or
+  output disconnects (3 s grace for re-plug or re-pick) — a dropped
+  mic never silently becomes the phone mic. Both are keyed to the
+  device the engine ACTUALLY routed to (ground truth even on the
+  system-default route) and scoped per connection: This mic / Any
+  external / Bluetooth only / USB only. If Android blocks a background
+  start you get a tap-to-start notification instead.
 - Quick Settings tile: tap to start/stop (optimistic), long-press opens
   the app.
 
@@ -62,7 +67,9 @@ Safety ON (−3 dBFS ceiling).
   per take, gate-driven); auto-stop monitoring when quiet (never stops
   a recording in progress).
 - Auto-record pairs well with Trim: record hands-free, then cut the
-  dead air off both ends of each take with one tap.
+  dead air off both ends of each take with one tap — or turn on
+  Auto-trim and every finished recording gets its _trimmed copy
+  automatically.
 - Library: play / share / delete / export M4A / save to Downloads /
   auto-copy finished takes to a folder you pick (SAF).
 - Library review tools: 0.5x / 0.75x / 1x playback with pitch
@@ -70,6 +77,10 @@ Safety ON (−3 dBFS ceiling).
 - Silence Trim (edges only): floor-relative analysis writes a
   "<name>_trimmed.wav" beside the original; originals are never
   touched.
+- Waqf marks: "Find waqf marks" on a playing take lists its likely
+  phrase endings (level-based envelope analysis, cached in a sidecar
+  file); tap a mark to jump playback there. A mirror of where you
+  stopped — no pitch judgement.
 
 ### Practice
 - Practice log: total time, session count, today's time (sessions of
@@ -580,3 +591,20 @@ Two real offenders, both fired by slider drags, both fixed:
   concrete device and lost it arms the 3 s grace. Event ordering can
   no longer make it miss.
 - README gained the full grouped Feature reference above.
+
+## v3.4 — Automation keyed to the real device; auto-trim; waqf marks
+
+- ROOT CAUSE found for "auto start/stop don't work": both were keyed
+  to the picker selection, which stays -1 (system default) in real
+  use while Android routes the USB mic by default. v3.4 keys both to
+  the engine's ACTUAL routed devices (new native route-id readout):
+  stop fires when the in-use device changes away or a removal drops
+  a concrete selection; start fires on matching new devices.
+- Automation scope: This mic / Any external / Bluetooth only / USB
+  only, shared by auto-start and auto-stop.
+- Auto-trim toggle: every finished recording gets a _trimmed copy
+  automatically (background thread, originals untouched).
+- Waqf marks in the Library (see Feature reference).
+- Compressor/De-esser Activity readout line removed (v3.3's
+  experiment): the values hover at ~0.0 dB at real levels and read
+  as noise; the stages keep working silently.

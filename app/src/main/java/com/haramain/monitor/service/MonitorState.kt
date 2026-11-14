@@ -22,8 +22,6 @@ object MonitorState {
     val actSuppress = MutableStateFlow(1f)
     val actLimiter = MutableStateFlow(1f)
     val actNotchHz = MutableStateFlow(0f)
-    val actCompDb = MutableStateFlow(0f)     // compressor gain reduction, dB >= 0
-    val actDeEssDb = MutableStateFlow(0f)    // de-esser HF duck, dB <= 0
     val sessionStartMs = MutableStateFlow(0L)
     val bufferFrames = MutableStateFlow(0)
 

@@ -63,6 +63,11 @@ public:
         gate = mActGate.load(); ns = mActNs.load(); lim = mActLim.load();
         mActGate.store(1.0f); mActNs.store(1.0f); mActLim.store(1.0f);
     }
+    /** The devices AAudio ACTUALLY routed to (ground truth when the
+     *  picker selection is "system default"). 0 = no stream. */
+    int32_t inputDeviceId() const { return mInputStream ? mInputStream->getDeviceId() : 0; }
+    int32_t outputDeviceId() const { return mOutputStream ? mOutputStream->getDeviceId() : 0; }
+
     int32_t outputBufferFrames() const {
         return mOutputStream ? mOutputStream->getBufferSizeInFrames() : 0;
     }

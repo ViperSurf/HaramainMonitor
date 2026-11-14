@@ -32,6 +32,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -102,6 +103,7 @@ private suspend fun saveToDownloads(context: android.content.Context, item: Reco
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun RecordingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -115,6 +117,7 @@ private fun RecordingsScreen(onBack: () -> Unit) {
     var loopA by remember { mutableStateOf<Int?>(null) }
     var loopB by remember { mutableStateOf<Int?>(null) }
     var abLoop by remember { mutableStateOf(false) }
+    var waqfMarks by remember { mutableStateOf<List<Int>?>(null) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(changed) { items = Recordings.list(context) }
@@ -129,6 +132,7 @@ private fun RecordingsScreen(onBack: () -> Unit) {
         loopA = null
         loopB = null
         abLoop = false
+        waqfMarks = null
     }
 
     fun applySpeed(s: Float) {
@@ -250,6 +254,39 @@ private fun RecordingsScreen(onBack: () -> Unit) {
                                     onClick = { abLoop = !abLoop },
                                     label = { Text("Loop A-B") },
                                 )
+                            }
+                            if (item.isWav) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    OutlinedButton(onClick = {
+                                        scope.launch {
+                                            waqfMarks = com.haramain.monitor.data.WaqfAnalyzer.markers(item.file)
+                                            if (waqfMarks.isNullOrEmpty()) {
+                                                Toast.makeText(context, "No clear phrase endings found in this take", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }) {
+                                        Text(if (waqfMarks == null) "Find waqf marks" else "Waqf marks found")
+                                    }
+                                    Text(
+                                        "Likely phrase endings — tap one to jump there.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                if (!waqfMarks.isNullOrEmpty()) {
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        waqfMarks!!.forEach { ms ->
+                                            FilterChip(
+                                                selected = false,
+                                                onClick = { try { player?.seekTo(ms) } catch (_: Exception) {} },
+                                                label = { Text(Recordings.formatDuration(ms.toLong())) },
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                         Row {

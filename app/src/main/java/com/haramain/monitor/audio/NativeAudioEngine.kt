@@ -83,6 +83,13 @@ object NativeAudioEngine {
 
     fun bufferFrames(): Int = if (handle != 0L) nativeGetBufferFrames(handle) else 0
 
+    /** (input, output) device ids the streams actually opened on. */
+    fun routeDeviceIds(): Pair<Int, Int> {
+        val out = intArrayOf(0, 0)
+        if (handle != 0L) nativeGetRouteDeviceIds(handle, out)
+        return out[0] to out[1]
+    }
+
     /** Stops recording; returns frames written. */
     fun stopRecording(): Long = if (handle != 0L) nativeStopRecording(handle) else 0L
 
@@ -135,6 +142,7 @@ object NativeAudioEngine {
     private external fun nativeGetPitchHz(handle: Long): Float
     private external fun nativeGetActivity(handle: Long, out: FloatArray)
     private external fun nativeGetBufferFrames(handle: Long): Int
+    private external fun nativeGetRouteDeviceIds(handle: Long, out: IntArray)
     private external fun nativeStopRecording(handle: Long): Long
     private external fun nativeIsRecording(handle: Long): Boolean
 }

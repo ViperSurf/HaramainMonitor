@@ -107,6 +107,23 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.edit { it[AUTO_RECORD] = on }
     }
 
+    /** Connection-automation scope: 0 = this mic, 1 = any external,
+     *  2 = Bluetooth only, 3 = USB only. */
+    val automationScope: Flow<Int> =
+        context.settingsDataStore.data.map { it[AUTOMATION_SCOPE] ?: 0 }
+
+    suspend fun setAutomationScope(scope: Int) {
+        context.settingsDataStore.edit { it[AUTOMATION_SCOPE] = scope }
+    }
+
+    /** Auto-trim edge silence from each finished recording. Default off. */
+    val autoTrim: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[AUTO_TRIM] ?: false }
+
+    suspend fun setAutoTrim(on: Boolean) {
+        context.settingsDataStore.edit { it[AUTO_TRIM] = on }
+    }
+
     /** Stop monitoring when the routed mic or output disconnects. Default off. */
     val stopOnDisconnect: Flow<Boolean> =
         context.settingsDataStore.data.map { it[STOP_ON_DISCONNECT] ?: false }
@@ -295,6 +312,8 @@ class SettingsStore(private val context: Context) {
         val VOICE_ACTIVATED = androidx.datastore.preferences.core.booleanPreferencesKey("voice_activated")
         val AUTO_START_MIC = androidx.datastore.preferences.core.booleanPreferencesKey("auto_start_mic")
         val STOP_ON_DISCONNECT = androidx.datastore.preferences.core.booleanPreferencesKey("stop_on_disconnect")
+        val AUTOMATION_SCOPE = androidx.datastore.preferences.core.intPreferencesKey("automation_scope")
+        val AUTO_TRIM = androidx.datastore.preferences.core.booleanPreferencesKey("auto_trim")
         val PRACTICE_TOTAL_SEC = androidx.datastore.preferences.core.longPreferencesKey("practice_total_sec")
         val PRACTICE_SESSIONS = androidx.datastore.preferences.core.intPreferencesKey("practice_sessions")
         val PRACTICE_TODAY_SEC = androidx.datastore.preferences.core.longPreferencesKey("practice_today_sec")

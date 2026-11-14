@@ -63,9 +63,49 @@ class MicMonitorService : Service() {
     @Volatile private var lastNotifiedMuted: Boolean? = null
     @Volatile private var varCached = false
     @Volatile private var stopOnDiscCached = false
+    @Volatile private var automationScopeCached = 0
+    @Volatile private var autoTrimCached = false
     private var disconnectGraceSec = 0
     private var hadInSelection = false
     private var hadOutSelection = false
+    private var selInKind = KIND_OTHER
+    private var selOutKind = KIND_OTHER
+    private var baselineSet = false
+    private var baseInId = 0
+    private var baseOutId = 0
+    private var baseSelIn = -1
+    private var baseSelOut = -1
+    private var baseInKind = KIND_OTHER
+    private var baseOutKind = KIND_OTHER
+    private var baseLostCount = 0
+
+    private fun kindOf(d: com.haramain.monitor.audio.RouteDevice?): Int = when {
+        d == null -> KIND_OTHER
+        d.isInternal -> KIND_INTERNAL
+        d.isBluetooth -> KIND_BT
+        d.rawType == android.media.AudioDeviceInfo.TYPE_USB_DEVICE ||
+            d.rawType == android.media.AudioDeviceInfo.TYPE_USB_HEADSET -> KIND_USB
+        else -> KIND_OTHER
+    }
+
+    private fun scopeAllows(kind: Int): Boolean = when (automationScopeCached) {
+        1 -> kind != KIND_INTERNAL
+        2 -> kind == KIND_BT
+        3 -> kind == KIND_USB
+        else -> true
+    }
+
+    private fun captureBaseline(actIn: Int, actOut: Int, selIn: Int, selOut: Int, lostCount: Int) {
+        baseInId = actIn
+        baseOutId = actOut
+        baseSelIn = selIn
+        baseSelOut = selOut
+        baseInKind = kindOf(router.inputs.value.firstOrNull { it.id == actIn })
+        baseOutKind = kindOf(router.outputs.value.firstOrNull { it.id == actOut })
+        baseLostCount = lostCount
+        baselineSet = true
+        disconnectGraceSec = 0
+    }
     @Volatile private var gateCachedDb = -45f
     @Volatile private var lastGateVoiceMs = 0L
     @Volatile private var sessionStartMs = 0L
@@ -159,6 +199,8 @@ class MicMonitorService : Service() {
         scope.launch { settings.autoStopMinutes.collectLatest { autoStopCached = it } }
         scope.launch { settings.voiceActivated.collectLatest { varCached = it } }
         scope.launch { settings.stopOnDisconnect.collectLatest { stopOnDiscCached = it } }
+        scope.launch { settings.automationScope.collectLatest { automationScopeCached = it } }
+        scope.launch { settings.autoTrim.collectLatest { autoTrimCached = it } }
         lastGateVoiceMs = System.currentTimeMillis()
         scope.launch {
             settings.autoRecord.collectLatest {
@@ -188,17 +230,40 @@ class MicMonitorService : Service() {
                     // Auto-stop on disconnect (v3.1): the router bumps
                     // selectionLostCount when the routed mic/output
                     // vanishes. 3 s grace covers re-plugs and re-picks.
-                    // State-based (v3.3): a side that HAD a concrete
-                    // device and lost it (selection fell back to -1)
-                    // arms a 3 s grace; a re-pick inside the grace
-                    // cancels. Cannot be missed by event ordering.
+                    // Stop-on-disconnect v3 (v3.4): keyed to the
+                    // devices the ENGINE actually opened on — ground
+                    // truth even on the system-default route, where
+                    // the picker selection stays -1 (the blind spot
+                    // that made v3.1/v3.3 never fire in real use).
+                    // Arm A: the actual input/output device changed
+                    // away while the picker selection did not change.
+                    // Arm B: a removal event dropped a concrete picker
+                    // selection to -1 (router.selectionLostCount only
+                    // bumps on removal, never on user picks).
+                    // A re-pick to a concrete device re-baselines.
                     val selIn = router.selectedInputId.value
                     val selOut = router.selectedOutputId.value
-                    if (selIn != -1) hadInSelection = true
-                    if (selOut != -1) hadOutSelection = true
-                    val lostNow = (hadInSelection && selIn == -1) ||
-                        (hadOutSelection && selOut == -1)
-                    if (stopOnDiscCached && lostNow) {
+                    if (selIn != -1) { hadInSelection = true; selInKind = kindOf(router.selectedInput()) }
+                    if (selOut != -1) { hadOutSelection = true; selOutKind = kindOf(router.selectedOutput()) }
+                    val (actIn, actOut) = NativeAudioEngine.routeDeviceIds()
+                    val lostCount = router.selectionLostCount.value
+                    if (!baselineSet && actIn != 0) {
+                        captureBaseline(actIn, actOut, selIn, selOut, lostCount)
+                    }
+                    var rebaselined = false
+                    if (baselineSet &&
+                        ((selIn != baseSelIn && selIn != -1) || (selOut != baseSelOut && selOut != -1))
+                    ) {
+                        captureBaseline(actIn, actOut, selIn, selOut, lostCount)
+                        rebaselined = true
+                    }
+                    val armA = baselineSet && !rebaselined &&
+                        ((baseInId != 0 && actIn != 0 && actIn != baseInId && scopeAllows(baseInKind)) ||
+                            (baseOutId != 0 && actOut != 0 && actOut != baseOutId && scopeAllows(baseOutKind)))
+                    val armB = !rebaselined && lostCount != baseLostCount &&
+                        ((hadInSelection && selIn == -1 && scopeAllows(selInKind)) ||
+                            (hadOutSelection && selOut == -1 && scopeAllows(selOutKind)))
+                    if (stopOnDiscCached && (armA || armB)) {
                         if (disconnectGraceSec == 0) disconnectGraceSec = 3
                         else if (--disconnectGraceSec == 0) {
                             stopMonitoring()
@@ -266,11 +331,6 @@ class MicMonitorService : Service() {
                 MonitorState.actSuppress.value = act[1]
                 MonitorState.actLimiter.value = act[2]
                 MonitorState.actNotchHz.value = act.getOrElse(3) { 0f }
-                MonitorState.actCompDb.value = act.getOrElse(5) { 0f }
-                val deGain = act.getOrElse(6) { 1f }
-                MonitorState.actDeEssDb.value =
-                    if (deGain >= 0.999f) 0f
-                    else (20.0 * kotlin.math.log10(deGain.toDouble())).toFloat().coerceAtLeast(-20f)
                 MonitorState.bufferFrames.value = NativeAudioEngine.bufferFrames()
                 val events = NativeAudioEngine.routeEventCount()
                 if (events != lastRouteEvents) {
@@ -313,6 +373,14 @@ class MicMonitorService : Service() {
         currentRecFile = null
         if (finished != null) {
             scope.launch(kotlinx.coroutines.Dispatchers.IO) { copyToExportFolder(finished) }
+            if (autoTrimCached) {
+                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    val r = com.haramain.monitor.data.WavTrimmer.trim(finished)
+                    if (r is com.haramain.monitor.data.WavTrimmer.TrimResult.Trimmed) {
+                        MonitorState.recordingsChanged.value += 1
+                    }
+                }
+            }
         }
     }
 
@@ -340,6 +408,7 @@ class MicMonitorService : Service() {
         disconnectGraceSec = 0
         hadInSelection = false
         hadOutSelection = false
+        baselineSet = false
         MonitorState.sessionStartMs.value = 0L
         MonitorState.actNotchHz.value = 0f
         val startedAt = sessionStartMs
@@ -558,6 +627,10 @@ class MicMonitorService : Service() {
         const val ACTION_START = "com.haramain.monitor.action.START"
         const val ACTION_STOP = "com.haramain.monitor.action.STOP"
         const val ACTION_TOGGLE_MUTE = "com.haramain.monitor.action.TOGGLE_MUTE"
+        const val KIND_INTERNAL = 0
+        const val KIND_OTHER = 1
+        const val KIND_BT = 2
+        const val KIND_USB = 3
         const val ACTION_TOGGLE_MONITOR = "com.haramain.monitor.action.TOGGLE_MONITOR"
         const val ACTION_TOGGLE_RECORD = "com.haramain.monitor.action.TOGGLE_RECORD"
         private const val CHANNEL_ID = "live_monitoring"
