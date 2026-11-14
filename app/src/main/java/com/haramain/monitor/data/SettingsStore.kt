@@ -91,6 +91,14 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.edit { it[BUFFER_MODE] = bursts.coerceIn(1, 4) }
     }
 
+    /** Auto-stop after this many minutes with no voice. 0 = off. Default 10. */
+    val autoStopMinutes: Flow<Int> =
+        context.settingsDataStore.data.map { it[AUTO_STOP_MIN] ?: 10 }
+
+    suspend fun setAutoStopMinutes(minutes: Int) {
+        context.settingsDataStore.edit { it[AUTO_STOP_MIN] = minutes.coerceIn(0, 60) }
+    }
+
     val pitchOn: Flow<Boolean> =
         context.settingsDataStore.data.map { it[PITCH_ON] ?: false }
 
@@ -192,6 +200,7 @@ class SettingsStore(private val context: Context) {
         val HIDDEN_MICS = stringPreferencesKey("hidden_mic_ids")
         val SECTIONS = stringPreferencesKey("open_sections")
         val BUFFER_MODE = androidx.datastore.preferences.core.intPreferencesKey("buffer_mode")
+        val AUTO_STOP_MIN = androidx.datastore.preferences.core.intPreferencesKey("auto_stop_min")
         val PITCH_ON = booleanPreferencesKey("pitch_on")
         val RECORD_DRY = booleanPreferencesKey("record_dry")
     }

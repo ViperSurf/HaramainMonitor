@@ -58,6 +58,8 @@ class MicMonitorService : Service() {
     private var currentRecFile: File? = null
     @Volatile private var recordDryCached = false
     @Volatile private var bufferModeCached = 1
+    @Volatile private var autoStopCached = 10
+    @Volatile private var lastVoiceMs = 0L
     private val settings by lazy { SettingsStore(this) }
 
     private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
@@ -133,6 +135,8 @@ class MicMonitorService : Service() {
         }
         scope.launch { settings.pitchOn.collectLatest { NativeAudioEngine.setPitchEnabled(it) } }
         scope.launch { settings.recordDry.collectLatest { recordDryCached = it } }
+        scope.launch { settings.autoStopMinutes.collectLatest { autoStopCached = it } }
+        lastVoiceMs = System.currentTimeMillis()
         scope.launch {
             router.selectedOutputId.collectLatest { id ->
                 val device = router.outputs.value.firstOrNull { it.id == id }
@@ -142,6 +146,7 @@ class MicMonitorService : Service() {
         // Telemetry + native route-event watchdog + buffer health + recovery.
         telemetryJob = scope.launch {
             var inPeak = -80f; var outPeak = -80f
+            var voiceEma = -80f
             var tick = 0
             while (isActive) {
                 if (++tick % 20 == 0) NativeAudioEngine.adaptBuffer()   // ~1×/s xrun check
@@ -161,7 +166,22 @@ class MicMonitorService : Service() {
                     }
                 }
                 // Peak-hold with gentle decay for readable meters.
-                inPeak = maxOf(NativeAudioEngine.inputPeakDb(), inPeak - 3f)
+                val tickInPeak = NativeAudioEngine.inputPeakDb()
+                inPeak = maxOf(tickInPeak, inPeak - 3f)
+                // Auto-stop: fast-attack / slow-decay EMA of the raw input
+                // peak. Voice-level sound keeps the quiet clock reset; a
+                // steady fan sits below the threshold and does not.
+                voiceEma = if (tickInPeak > voiceEma) tickInPeak
+                           else voiceEma + 0.02f * (tickInPeak - voiceEma)
+                val nowTick = System.currentTimeMillis()
+                if (voiceEma > -48f) lastVoiceMs = nowTick
+                val stopAfterMin = autoStopCached
+                if (stopAfterMin > 0 && !MonitorState.isRecording.value &&
+                    lastVoiceMs > 0 && nowTick - lastVoiceMs > stopAfterMin * 60_000L) {
+                    Log.i(TAG, "Auto-stop: $stopAfterMin min without voice")
+                    stopMonitoring()
+                    break
+                }
                 outPeak = maxOf(NativeAudioEngine.outputPeakDb(), outPeak - 3f)
                 MonitorState.inputPeakDb.value = inPeak
                 MonitorState.outputPeakDb.value = outPeak

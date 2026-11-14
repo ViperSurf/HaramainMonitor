@@ -11,8 +11,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -29,6 +37,31 @@ import androidx.compose.ui.unit.dp
  * double-tap anywhere on the control resets to [defaultValue].
  * [showCenterSnap] adds a snap-to-center button (Stereo Balance).
  */
+/**
+ * A small (i) button that explains a control or section in one or two
+ * plain sentences. Self-contained: owns its dialog.
+ */
+@Composable
+fun InfoTip(title: String, text: String, modifier: Modifier = Modifier) {
+    var show by remember { mutableStateOf(false) }
+    IconButton(onClick = { show = true }, modifier = modifier.size(28.dp)) {
+        Icon(
+            Icons.Filled.Info,
+            contentDescription = "About $title",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(17.dp),
+        )
+    }
+    if (show) {
+        AlertDialog(
+            onDismissRequest = { show = false },
+            title = { Text(title) },
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = { show = false }) { Text("Got it") } },
+        )
+    }
+}
+
 @Composable
 fun PrecisionControl(
     label: String,
@@ -41,6 +74,7 @@ fun PrecisionControl(
     modifier: Modifier = Modifier,
     showCenterSnap: Boolean = false,
     enabled: Boolean = true,
+    help: String? = null,
 ) {
     fun set(v: Float) = onValueChange(v.coerceIn(valueRange.start, valueRange.endInclusive))
 
@@ -57,11 +91,14 @@ fun PrecisionControl(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (help != null) InfoTip(label, help)
+            }
             Text(
                 text = format(value),
                 style = MaterialTheme.typography.titleSmall,

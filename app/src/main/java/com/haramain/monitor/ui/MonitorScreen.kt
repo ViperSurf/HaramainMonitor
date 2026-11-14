@@ -91,6 +91,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.haramain.monitor.ui.components.PrecisionControl
+import com.haramain.monitor.ui.components.InfoTip
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -124,6 +125,7 @@ fun MonitorScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val hasPin by viewModel.hasPin.collectAsState()
     val resumeOnLaunch by viewModel.resumeOnLaunch.collectAsState()
+    val autoStopMinutes by viewModel.autoStopMinutes.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val recordingStartedAt by viewModel.recordingStartedAtMs.collectAsState()
     val controlsEnabled = !locked
@@ -258,7 +260,7 @@ fun MonitorScreen(
         }
 
         // ---------- Routing bar ----------
-        ExpandableSection(title = "Hardware Routing", expanded = openSections["routing"] ?: true, onExpandedChange = { viewModel.setSectionOpen("routing", it) }) {
+        ExpandableSection(title = "Hardware Routing", expanded = openSections["routing"] ?: true, onExpandedChange = { viewModel.setSectionOpen("routing", it) }, help = "Choose exactly which mic records you and which speaker or earbuds you hear. If a Bluetooth mic is offered, the phone or USB mic with Bluetooth output sounds far better: Bluetooth mics send your voice through a low-quality call channel.") {
             DevicePicker(
                 label = "Input Mic",
                 icon = Icons.Filled.Mic,
@@ -323,6 +325,7 @@ fun MonitorScreen(
                 Spacer(Modifier.height(8.dp))
                 ToggleRow(
                     label = "BT Dry Monitor Ducking",
+                    help = "For Bluetooth earbuds: softens your delayed direct voice so it stops fighting itself. The amount is Dry Duck Amount, just below.",
                     checked = params.btDuckOn,
                     onCheckedChange = { on -> viewModel.update { it.copy(btDuckOn = on) } },
                     enabled = controlsEnabled,
@@ -330,6 +333,7 @@ fun MonitorScreen(
                 if (params.btDuckOn) {
                     PrecisionControl(
                         label = "Dry Duck Amount",
+                        help = "On Bluetooth your direct voice arrives late and echoes against itself. Ducking lowers only the direct voice; the reverb stays full, so the space still feels alive.",
                         value = params.btDuckPercent, valueRange = 0f..100f, step = 1f,
                         defaultValue = 50f,
                         format = { pct(it) },
@@ -415,6 +419,7 @@ fun MonitorScreen(
 
         // ---------- Recording ----------
         ExpandableSection(
+            help = "Processed Mix records exactly what you hear, space and all. Dry Vocal records the untouched microphone, best for hearing your real voice or editing later. Recordings are WAV; the Library can share them or export M4A.",
             title = "Recording",
             headerBadge = if (isRecording) "● REC" else null,
             expanded = openSections["recording"] == true,
@@ -469,7 +474,7 @@ fun MonitorScreen(
         }
 
         // ---------- Presets ----------
-        ExpandableSection(title = "Presets", expanded = openSections["presets"] ?: true, onExpandedChange = { viewModel.setSectionOpen("presets", it) }) {
+        ExpandableSection(title = "Presets", expanded = openSections["presets"] ?: true, onExpandedChange = { viewModel.setSectionOpen("presets", it) }, help = "Ready-made spaces. Tap one to load it; moving any slider afterwards turns your sound into Custom. Auto Setup measures your room and your voice and builds a preset for you.") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -506,10 +511,30 @@ fun MonitorScreen(
                     )
                 }
             }
+            Spacer(Modifier.height(10.dp))
+            Text("About this space", style = MaterialTheme.typography.titleSmall)
+            val autoNowPanel = autoPreset
+            val autoSelected = autoNowPanel != null && params.copy(muted = false) == autoNowPanel.copy(muted = false)
+            Text(
+                if (autoSelected) {
+                    "Auto — built by Auto Setup from the sound of your room and your voice."
+                } else when (preset) {
+                    PresetKind.HARAMAIN -> "Masjid al-Haram, Makkah: the vast marble hall. Bright, expansive reflections that carry a voice a long way — the fullest space in the app, and the default."
+                    PresetKind.NABAWI -> "Masjid an-Nabawi, Madinah: warm domes and carpet soften the echo — rounder, gentler and a little more intimate than al-Haram."
+                    PresetKind.STONE_DOME -> "Historic Stone Dome: an old stone prayer hall. Clear, focused reflections off hard walls, medium in size."
+                    PresetKind.LOCAL_HALL -> "Local Masjid Hall: a carpeted community masjid. Modest warmth, short reflections, close and familiar."
+                    PresetKind.STUDIO -> "Studio Dry: no room at all — your voice exactly as the mic hears it. Best for checking your real sound and for clean recordings."
+                    PresetKind.SIMPLE -> "Simple Studio: a whisper of room and a light polish. Clean and natural, like a good small studio."
+                    PresetKind.CUSTOM -> "Custom: your own settings live here. Save Custom keeps them; loading a preset replaces them."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
 
         // ---------- DSP controls ----------
-        ExpandableSection(title = "Vocal Chain", expanded = openSections["vocal"] == true, onExpandedChange = { viewModel.setSectionOpen("vocal", it) }) {
+        ExpandableSection(title = "Vocal Chain", expanded = openSections["vocal"] == true, onExpandedChange = { viewModel.setSectionOpen("vocal", it) }, help = "Your voice passes through these stages in order: Boost, Static Remover, Gate, Suppression, De-Esser, Compressor, then into the space. The Activity line under the meters shows the Gate, Suppression and Limiter working.") {
             Text(
                 "Double-tap any control to reset it to its Haramain (Original) value.",
                 style = MaterialTheme.typography.bodySmall,
@@ -518,6 +543,7 @@ fun MonitorScreen(
 
             PrecisionControl(
                 label = "Mic Boost",
+                help = "Raises the mic level before everything else. Turn it up for a quiet or distant mic; down if the meter slams into the red.",
                 value = params.micBoostPercent, valueRange = 0f..200f, step = 1f,
                 defaultValue = 50f,
                 format = { String.format(Locale.US, "%.0f%%  (+%.1f dB)", it, it / 100f * 12f) },
@@ -526,6 +552,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Static Remover",
+                help = "A high-pass filter plus hiss softening. It strips rumble, handling noise and airy hiss, mostly during your quiet moments.",
                 value = params.staticRemover, valueRange = 0f..100f, step = 1f,
                 defaultValue = 60f,
                 format = { pct(it) },
@@ -534,12 +561,14 @@ fun MonitorScreen(
             )
             ToggleRow(
                 label = "Noise Suppression (Voice Isolation)",
+                help = "Learns the steady sounds of your room (fan, AC, hum) over about a second of quiet and lowers them while leaving your voice alone. Watch it on the Activity line under the meters.",
                 checked = params.noiseSuppressOn,
                 onCheckedChange = { on -> viewModel.update { it.copy(noiseSuppressOn = on) } },
                 enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "Suppression Depth",
+                help = "How strongly the learned room noise is pushed down. Higher is cleaner, but extremes can thin the voice.",
                 value = params.noiseSuppress, valueRange = 0f..100f, step = 1f,
                 defaultValue = 40f,
                 format = { pct(it) },
@@ -548,6 +577,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Noise Gate Threshold",
+                help = "Anything quieter than this is silenced, so the gaps between phrases go truly quiet. Set it just above your room's background noise.",
                 value = params.gateThresholdDb, valueRange = -80f..0f, step = 0.5f,
                 defaultValue = -45f,
                 format = { db(it) },
@@ -556,6 +586,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "De-Esser",
+                help = "Softens harsh 's' and 'sh' sounds so they don't pierce, especially on bright phone mics.",
                 value = params.deEsserPercent, valueRange = 0f..100f, step = 1f,
                 defaultValue = 50f,
                 format = { pct(it) },
@@ -564,6 +595,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Compressor",
+                help = "Evens out your volume: soft words come up, loud peaks come down, so the level feels steady without riding the gain.",
                 value = params.compressorPercent, valueRange = 0f..100f, step = 1f,
                 defaultValue = 70f,
                 format = { pct(it) },
@@ -572,9 +604,10 @@ fun MonitorScreen(
             )
         }
 
-        ExpandableSection(title = "Haramain Space", expanded = openSections["space"] == true, onExpandedChange = { viewModel.setSectionOpen("space", it) }) {
+        ExpandableSection(title = "Haramain Space", expanded = openSections["space"] == true, onExpandedChange = { viewModel.setSectionOpen("space", it) }, help = "The room your voice sits in, plus tone shaping. Room Size and Mix shape the space itself; Balance, Master Gain, Bass, Treble and the Vocal Tone Sculptor shape the sound.") {
             PrecisionControl(
                 label = "Reverb Room Size",
+                help = "How large the space feels. Bigger means longer, more spacious reflections.",
                 value = params.roomSizePercent, valueRange = 0f..100f, step = 1f,
                 defaultValue = 95f,
                 format = { pct(it) },
@@ -583,6 +616,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Reverb Wet / Dry Mix",
+                help = "How much of the space is blended into your voice. Low is intimate; high washes the voice in the room.",
                 value = params.wetDryPercent, valueRange = 0f..100f, step = 1f,
                 defaultValue = 52f,
                 format = { pct(it) },
@@ -591,6 +625,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Stereo Balance",
+                help = "Places your voice between the left and right ears.",
                 value = params.balancePercent, valueRange = -100f..100f, step = 1f,
                 defaultValue = 0f,
                 format = { balanceLabel(it) },
@@ -600,6 +635,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Master Gain",
+                help = "The final output volume, after all processing.",
                 value = params.masterGainDb, valueRange = -24f..12f, step = 0.5f,
                 defaultValue = 0f,
                 format = { db(it) },
@@ -608,6 +644,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Bass Boost (Low Frequencies)",
+                help = "A broad low-end shelf. Adds body; too much turns boomy.",
                 value = params.eqLowGainDb, valueRange = -12f..12f, step = 0.5f,
                 defaultValue = 0f,
                 format = { db(it) },
@@ -617,6 +654,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Treble Boost (High Frequencies)",
+                help = "A broad high-end shelf. Adds brightness and detail; too much turns harsh.",
                 value = params.eqHighGainDb, valueRange = -12f..12f, step = 0.5f,
                 defaultValue = 0f,
                 format = { db(it) },
@@ -628,6 +666,7 @@ fun MonitorScreen(
             Text("Vocal Tone Sculptor", style = MaterialTheme.typography.titleSmall)
             PrecisionControl(
                 label = "Warmth (150 Hz)",
+                help = "Body and chest in the voice. Lift for a fuller sound; cut if it turns muddy.",
                 value = params.eqWarmthDb, valueRange = -12f..12f, step = 0.5f,
                 defaultValue = 0f,
                 format = { db(it) },
@@ -637,6 +676,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Clarity (3 kHz)",
+                help = "Presence and intelligibility, where the ear is most sensitive. Lift to cut through; cut if it pierces.",
                 value = params.eqClarityDb, valueRange = -12f..12f, step = 0.5f,
                 defaultValue = 0f,
                 format = { db(it) },
@@ -646,6 +686,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Air (10 kHz)",
+                help = "The breathy sparkle at the very top. A little feels open and live; too much adds hiss.",
                 value = params.eqAirDb, valueRange = -12f..12f, step = 0.5f,
                 defaultValue = 0f,
                 format = { db(it) },
@@ -659,6 +700,7 @@ fun MonitorScreen(
         ExpandableSection(title = "Safety & Limiter", expanded = openSections["safety"] == true, onExpandedChange = { viewModel.setSectionOpen("safety", it) }) {
             ToggleRow(
                 label = "Headphone Safety",
+                help = "A hard ceiling on loudness so nothing can clip or blast your ears. Leave it on unless you know exactly why you don't want it.",
                 checked = params.safetyOn,
                 onCheckedChange = { on -> viewModel.update { it.copy(safetyOn = on) } },
                 icon = Icons.Filled.NotificationsActive,
@@ -676,6 +718,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Safety Ceiling",
+                help = "The loudest the output may ever get while Headphone Safety is on. -3 dB is the sane default.",
                 value = params.safetyCeilingDb, valueRange = -12f..0f, step = 0.5f,
                 defaultValue = -3f,
                 format = { db(it) },
@@ -699,9 +742,27 @@ fun MonitorScreen(
             }
             ToggleRow(
                 label = "Resume monitoring when app reopens",
+                help = "If the app is closed while monitoring, or the phone restarts, monitoring picks up again by itself. Auto-stop still applies.",
                 checked = resumeOnLaunch,
                 onCheckedChange = viewModel::setResume,
             )
+            Spacer(Modifier.height(10.dp))
+            Text("Auto-stop when quiet", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Stops monitoring by itself after this long with no voice, only room sound — so a forgotten session can't drain the battery or leave the mic hot. A recording in progress is never stopped.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0, 5, 10, 15, 30).forEach { m ->
+                    FilterChip(
+                        selected = autoStopMinutes == m,
+                        onClick = { viewModel.setAutoStopMinutes(m) },
+                        label = { Text(if (m == 0) "Off" else "$m min") },
+                    )
+                }
+            }
             Spacer(Modifier.height(4.dp))
             Text("Recording folder", style = MaterialTheme.typography.titleSmall)
             Text(
@@ -869,6 +930,7 @@ private fun ExpandableSection(
     headerBadge: String? = null,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
+    help: String? = null,
     content: @Composable () -> Unit,
 ) {
     Card(
@@ -883,7 +945,10 @@ private fun ExpandableSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    if (help != null) InfoTip(title, help)
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (headerBadge != null) {
                         Text(
@@ -933,6 +998,7 @@ private fun ToggleRow(
     onCheckedChange: (Boolean) -> Unit,
     icon: ImageVector? = null,
     enabled: Boolean = true,
+    help: String? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -945,6 +1011,7 @@ private fun ToggleRow(
                 Spacer(Modifier.padding(horizontal = 4.dp))
             }
             Text(label, style = MaterialTheme.typography.titleSmall)
+            if (help != null) InfoTip(label, help)
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
@@ -1022,6 +1089,7 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
     // Buffer / latency tuning (applies live, no service restart).
     Text("Buffer / Latency Tuning", style = MaterialTheme.typography.labelLarge)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        InfoTip("Buffer / Latency", "The audio buffer trades delay for stability. 1x is the smallest buffer your device offers (its frame size differs per device, shown as buf Nf); higher modes ride out glitchy links. On Bluetooth outputs the app enforces a stability floor automatically.")
         listOf(1 to "Ultra-Low 1×", 2 to "Balanced 2×", 4 to "Stable 4×").forEach { (bursts, label) ->
             FilterChip(
                 selected = bufferMode == bursts,
@@ -1039,6 +1107,7 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text("Pitch indicator", style = MaterialTheme.typography.labelLarge)
+        InfoTip("Pitch indicator", "Estimates the note you are voicing, for tuning your recitation tone. It only listens — it never changes the sound.")
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (pitchOn) {
                 Text(

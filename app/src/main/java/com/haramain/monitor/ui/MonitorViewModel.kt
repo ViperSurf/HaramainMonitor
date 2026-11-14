@@ -182,6 +182,8 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val recordDry: StateFlow<Boolean> = settings.recordDry
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val autoStopMinutes: StateFlow<Int> = settings.autoStopMinutes
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 10)
     val pitchHz: StateFlow<Float> = MonitorState.pitchHz
     val actGate: StateFlow<Float> = MonitorState.actGate
     val actSuppress: StateFlow<Float> = MonitorState.actSuppress
@@ -191,6 +193,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     fun setBufferMode(bursts: Int) = viewModelScope.launch { settings.setBufferMode(bursts) }
     fun setPitchOn(on: Boolean) = viewModelScope.launch { settings.setPitchOn(on) }
     fun setRecordDry(dry: Boolean) = viewModelScope.launch { settings.setRecordDry(dry) }
+    fun setAutoStopMinutes(m: Int) = viewModelScope.launch { settings.setAutoStopMinutes(m) }
 
     // ---- settings export / import ----
     suspend fun buildExportJson(): String =

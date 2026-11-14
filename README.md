@@ -314,3 +314,16 @@ Field-report driven (v2.0.1 on a real phone + USB/Bluetooth mics):
   buffer mode on the new device, and the pill shows frames AND mode
   (`buf 192f · 1x`) — frame counts differ across devices because burst
   sizes differ (96f and 192f can both be Ultra-Low 1x).
+
+## v2.3 — Auto-stop when quiet + tooltips everywhere
+
+- **Auto-stop (default ON, 10 min):** the service tracks a fast-attack /
+  slow-decay average of the raw input peak; any voice-level sound resets
+  the clock, while steady room tone (a fan included) does not. After the
+  chosen stretch of quiet (Off / 5 / 10 / 15 / 30 min in App Settings)
+  monitoring stops by itself. A recording in progress is never stopped.
+- **Tooltips:** an (i) beside every slider, toggle, section and the
+  buffer/pitch rows opens a one-or-two-sentence explanation, and the
+  Presets section now carries an "About this space" panel describing
+  the selected space (Masjid al-Haram, an-Nabawi, Stone Dome, Local
+  Masjid Hall, Studio Dry, Simple Studio, Custom, Auto).
