@@ -14,8 +14,8 @@ android {
         applicationId = "com.haramain.monitor"
         minSdk = 26          // AAudio low-latency path is used on API 27+; Oboe falls back to OpenSL ES below that.
         targetSdk = 35
-        versionCode = 14
-        versionName = "2.6"
+        versionCode = 15
+        versionName = "2.7"
 
         // Build native code only for real device ABIs (+ x86_64 for emulators).
         ndk {
@@ -46,8 +46,14 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // v2.7: dev-latest ships THIS build. A non-debuggable build is
+            // dramatically smoother for Compose UI than the debug build
+            // (no JDWP, full ART optimization). Minify stays OFF for now:
+            // the JNI surface makes R8 keep-rules a separate careful step.
+            isMinifyEnabled = false
+            if (devKeystore.exists()) {
+                signingConfig = signingConfigs.getByName("devDebug")
+            }
         }
         debug {
             isMinifyEnabled = false

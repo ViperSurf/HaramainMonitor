@@ -45,16 +45,16 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      - name: Build debug APK
+      - name: Build release APK (non-debuggable, dev-signed)
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleRelease --stacktrace
 
       - name: Upload APK as run artifact
         uses: actions/upload-artifact@v4
         with:
           name: HaramainMonitor-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/release/app-release.apk
           retention-days: 90
 
       - name: Publish to rolling dev-latest pre-release
@@ -65,8 +65,8 @@ jobs:
           name: Latest dev build (installable APK)
           prerelease: true
           body: |
-            Auto-built debug APK from the latest commit on main.
-            Download app-debug.apk below and open it on your phone to install
+            Auto-built release APK from the latest commit on main.
+            Download app-release.apk below and open it on your phone to install
             (you may need to allow "install from this app" for your browser/Files).
             Signed with the project's stable dev key, so future builds update in place.
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: app/build/outputs/apk/release/app-release.apk

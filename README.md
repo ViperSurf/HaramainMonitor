@@ -387,3 +387,19 @@ Two real offenders, both fired by slider drags, both fixed:
   zero audio-path changes. Mutually exclusive with Record
   Automatically (enforced in the view model and guarded in the
   service); Auto-stop still never interrupts a take.
+
+## v2.7 — Tile responsiveness + release build (smoothness, round 2)
+
+- **Tile state was stale by design accident:** the tile re-read the
+  service state immediately after sending the intent, i.e. before the
+  service had changed anything, and Android only guarantees a refresh
+  when the shade reopens. The tile now flips OPTIMISTICALLY on tap
+  and reconciles with the service truth on the next listen cycle;
+  the service still pokes requestListeningState on start/stop.
+- **New tile icon:** headphones glyph instead of a microphone (the
+  mic glyph collides with Android's own mic-in-use indicators).
+- **dev-latest now ships a RELEASE build** (non-debuggable), signed
+  with the same dev keystore so it installs over the debug builds
+  with data intact. Debug builds of Compose apps carry heavy runtime
+  overhead; this is the single biggest UI-smoothness lever available.
+  R8/minify remains a separate future step (JNI keep-rules).

@@ -23,7 +23,16 @@ class MonitorTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        if (MonitorState.isRunning.value) {
+        val target = !MonitorState.isRunning.value
+        // Optimistic flip: light the tile NOW instead of waiting for the
+        // service round-trip (stream open takes a few hundred ms, which
+        // read as lag). onStartListening reconciles with the truth.
+        qsTile?.let { t ->
+            t.state = if (target) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+            t.subtitle = if (target) "Monitoring" else "Off"
+            t.updateTile()
+        }
+        if (!target) {
             startService(MicMonitorService.stopIntent(this))
         } else {
             try {
@@ -38,7 +47,6 @@ class MonitorTileService : TileService() {
                 )
             }
         }
-        render()
     }
 
     private fun render() {
@@ -47,7 +55,7 @@ class MonitorTileService : TileService() {
         tile.state = if (running) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = "Haramain Monitor"
         tile.subtitle = if (running) "Monitoring" else "Off"
-        tile.icon = Icon.createWithResource(this, R.drawable.ic_tile_mic)
+        tile.icon = Icon.createWithResource(this, R.drawable.ic_tile_headphones)
         tile.updateTile()
     }
 
