@@ -27,8 +27,11 @@ import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -106,6 +109,12 @@ private fun RecordingsScreen(onBack: () -> Unit) {
     var items by remember { mutableStateOf<List<RecordingItem>>(emptyList()) }
     var playingPath by remember { mutableStateOf<String?>(null) }
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
+    var speed by remember { mutableStateOf(1f) }
+    var progressMs by remember { mutableStateOf(0) }
+    var durationMs by remember { mutableStateOf(0) }
+    var loopA by remember { mutableStateOf<Int?>(null) }
+    var loopB by remember { mutableStateOf<Int?>(null) }
+    var abLoop by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(changed) { items = Recordings.list(context) }
@@ -115,6 +124,18 @@ private fun RecordingsScreen(onBack: () -> Unit) {
         player?.release()
         player = null
         playingPath = null
+        progressMs = 0
+        durationMs = 0
+        loopA = null
+        loopB = null
+        abLoop = false
+    }
+
+    fun applySpeed(s: Float) {
+        speed = s
+        try {
+            player?.setPlaybackParams(android.media.PlaybackParams().setSpeed(s).setPitch(1f))
+        } catch (_: Exception) {}
     }
 
     fun togglePlay(item: RecordingItem) {
@@ -127,9 +148,28 @@ private fun RecordingsScreen(onBack: () -> Unit) {
             setDataSource(item.file.absolutePath)
             setOnCompletionListener { stopPlayer() }
             prepare()
+            durationMs = duration
+            if (speed != 1f) {
+                try { setPlaybackParams(android.media.PlaybackParams().setSpeed(speed).setPitch(1f)) } catch (_: Exception) {}
+            }
             start()
         }
         playingPath = item.file.absolutePath
+    }
+
+    // Progress + A-B loop watcher for the playing take.
+    LaunchedEffect(playingPath) {
+        while (playingPath != null) {
+            val p = player
+            if (p != null) {
+                try {
+                    progressMs = p.currentPosition
+                    val a = loopA; val b = loopB
+                    if (abLoop && a != null && b != null && p.currentPosition >= b) p.seekTo(a)
+                } catch (_: Exception) {}
+            }
+            kotlinx.coroutines.delay(200)
+        }
     }
 
     DisposableEffect(Unit) { onDispose { stopPlayer() } }
@@ -175,6 +215,43 @@ private fun RecordingsScreen(onBack: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (playingPath == item.file.absolutePath) {
+                            Text(
+                                "${Recordings.formatDuration(progressMs.toLong())} / ${Recordings.formatDuration(durationMs.toLong())}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("Speed", style = MaterialTheme.typography.labelLarge)
+                                listOf(0.5f to "0.5×", 0.75f to "0.75×", 1f to "1×").forEach { (s, label) ->
+                                    FilterChip(
+                                        selected = speed == s,
+                                        onClick = { applySpeed(s) },
+                                        label = { Text(label) },
+                                    )
+                                }
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                OutlinedButton(onClick = { loopA = progressMs; if (abLoop && (loopB ?: 0) <= progressMs) abLoop = false }) {
+                                    Text(if (loopA == null) "Set A" else "A ${Recordings.formatDuration(loopA!!.toLong())}")
+                                }
+                                OutlinedButton(onClick = { loopB = progressMs }) {
+                                    Text(if (loopB == null) "Set B" else "B ${Recordings.formatDuration(loopB!!.toLong())}")
+                                }
+                                FilterChip(
+                                    selected = abLoop,
+                                    enabled = loopA != null && loopB != null && (loopB ?: 0) > (loopA ?: 0),
+                                    onClick = { abLoop = !abLoop },
+                                    label = { Text("Loop A-B") },
+                                )
+                            }
+                        }
                         Row {
                             IconButton(onClick = { togglePlay(item) }) {
                                 Icon(
@@ -221,6 +298,26 @@ private fun RecordingsScreen(onBack: () -> Unit) {
                                     }
                                 }) {
                                     Icon(Icons.Filled.FileUpload, contentDescription = "Export as M4A")
+                                }
+                            }
+                            if (item.isWav && !item.name.endsWith("_trimmed.wav")) {
+                                IconButton(onClick = {
+                                    scope.launch {
+                                        val msg = when (val r = com.haramain.monitor.data.WavTrimmer.trim(item.file)) {
+                                            is com.haramain.monitor.data.WavTrimmer.TrimResult.Trimmed ->
+                                                "Trimmed ${Recordings.formatDuration(r.savedMs)} of edge silence → ${r.outFile.name}"
+                                            com.haramain.monitor.data.WavTrimmer.TrimResult.NothingToTrim ->
+                                                "Nothing to trim — no long edge silence"
+                                            com.haramain.monitor.data.WavTrimmer.TrimResult.NoSpeech ->
+                                                "No voice above the room tone found"
+                                            com.haramain.monitor.data.WavTrimmer.TrimResult.Failed ->
+                                                "Trim failed"
+                                        }
+                                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                        items = Recordings.list(context)
+                                    }
+                                }) {
+                                    Icon(Icons.Filled.ContentCut, contentDescription = "Trim edge silence")
                                 }
                             }
                             IconButton(onClick = {

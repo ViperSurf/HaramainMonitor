@@ -465,3 +465,21 @@ Two real offenders, both fired by slider drags, both fixed:
   re-plug or a quick re-pick cancels it) and then stops monitoring
   instead of falling back to another device — a dropped mic while
   leading should never silently become the phone mic in a pocket.
+
+## v3.2 — Media-button mute, Library review tools, goal + streak, silence trim
+
+- Earbud / lock-screen mute: the service now owns a media session.
+  Headset-hook and play/pause media buttons toggle mute; play =
+  unmute, pause = mute, stop = stop monitoring. The notification is
+  a MediaStyle notification tied to the session, so lock-screen
+  transport controls reflect live/muted state.
+- Library review: per-take playback controls while a take plays —
+  speed 0.5x / 0.75x / 1x with pitch preserved, progress readout,
+  and an A-B phrase loop (Set A / Set B / Loop) for drilling.
+- Practice goal + streak: daily goal chips (Off..30 min, default
+  10) in App Settings; per-day history (90 days) powers a streak
+  counter in the practice summary.
+- Silence trimming (edges only): a Trim action on WAV takes in the
+  Library. Floor-relative analysis (100 ms slices, speech line =
+  15th-percentile floor + 12 dB, 0.3 s padding), non-destructive
+  "<name>_trimmed.wav" output; the original is never touched.

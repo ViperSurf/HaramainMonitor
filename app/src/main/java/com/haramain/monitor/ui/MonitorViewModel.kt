@@ -227,14 +227,25 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     fun setStopOnDisconnect(on: Boolean) = viewModelScope.launch { settings.setStopOnDisconnect(on) }
 
     val practiceSummary: StateFlow<String> = settings.practiceStats
-        .map { (totalSec, sessions, todaySec) ->
+        .map { s ->
             fun fmt(sec: Long): String {
                 val m = sec / 60
                 return if (m >= 60) "${m / 60} h ${m % 60} min" else "$m min"
             }
-            "Total ${fmt(totalSec)} · $sessions sessions · Today ${fmt(todaySec)}"
+            buildString {
+                append("Total ${fmt(s.totalSec)} · ${s.sessions} sessions · Today ${fmt(s.todaySec)}")
+                if (s.goalMin > 0) {
+                    append(" of ${s.goalMin} min goal")
+                    if (s.streakDays > 0) append(" · ${s.streakDays}-day streak")
+                }
+            }
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    val practiceGoalMin: StateFlow<Int> = settings.practiceGoalMin
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 10)
+
+    fun setPracticeGoalMin(m: Int) = viewModelScope.launch { settings.setPracticeGoalMin(m) }
 
     fun setVoiceActivated(on: Boolean) = viewModelScope.launch {
         settings.setVoiceActivated(on)

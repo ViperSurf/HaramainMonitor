@@ -123,25 +123,53 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.edit { it[AUTO_START_MIC] = on }
     }
 
-    /** Practice log: (total seconds, sessions, today's seconds). */
-    val practiceStats: Flow<Triple<Long, Int, Long>> =
+    /** Practice goal in minutes/day (0 = off). */
+    val practiceGoalMin: Flow<Int> =
+        context.settingsDataStore.data.map { it[PRACTICE_GOAL_MIN] ?: 10 }
+
+    suspend fun setPracticeGoalMin(min: Int) {
+        context.settingsDataStore.edit { it[PRACTICE_GOAL_MIN] = min }
+    }
+
+    data class PracticeStats(
+        val totalSec: Long,
+        val sessions: Int,
+        val todaySec: Long,
+        val goalMin: Int,
+        val streakDays: Int,
+    )
+
+    /** Practice log: totals plus goal/streak from the per-day history. */
+    val practiceStats: Flow<PracticeStats> =
         context.settingsDataStore.data.map { p ->
-            val today = java.time.LocalDate.now().toString()
-            Triple(
-                p[PRACTICE_TOTAL_SEC] ?: 0L,
-                p[PRACTICE_SESSIONS] ?: 0,
-                if (p[PRACTICE_DAY] == today) (p[PRACTICE_TODAY_SEC] ?: 0L) else 0L,
+            val today = java.time.LocalDate.now()
+            val days = parsePracticeDays(p[PRACTICE_DAYS])
+            val goal = p[PRACTICE_GOAL_MIN] ?: 10
+            val todaySec = days[today.toString()]
+                ?: if (p[PRACTICE_DAY] == today.toString()) (p[PRACTICE_TODAY_SEC] ?: 0L) else 0L
+            PracticeStats(
+                totalSec = p[PRACTICE_TOTAL_SEC] ?: 0L,
+                sessions = p[PRACTICE_SESSIONS] ?: 0,
+                todaySec = todaySec,
+                goalMin = goal,
+                streakDays = practiceStreak(days, goal, today),
             )
         }
 
     suspend fun addPracticeSession(seconds: Long) {
-        val today = java.time.LocalDate.now().toString()
+        val todayDate = java.time.LocalDate.now()
+        val today = todayDate.toString()
         context.settingsDataStore.edit { p ->
             val sameDay = p[PRACTICE_DAY] == today
             p[PRACTICE_TOTAL_SEC] = (p[PRACTICE_TOTAL_SEC] ?: 0L) + seconds
             p[PRACTICE_SESSIONS] = (p[PRACTICE_SESSIONS] ?: 0) + 1
             p[PRACTICE_TODAY_SEC] = (if (sameDay) (p[PRACTICE_TODAY_SEC] ?: 0L) else 0L) + seconds
             p[PRACTICE_DAY] = today
+            val days = parsePracticeDays(p[PRACTICE_DAYS]).toMutableMap()
+            days[today] = (days[today] ?: 0L) + seconds
+            val cutoff = todayDate.minusDays(90).toString()
+            val kept = days.filterKeys { it >= cutoff }.toSortedMap()
+            p[PRACTICE_DAYS] = kept.entries.joinToString(";") { "${it.key}=${it.value}" }
         }
     }
 
@@ -271,8 +299,31 @@ class SettingsStore(private val context: Context) {
         val PRACTICE_SESSIONS = androidx.datastore.preferences.core.intPreferencesKey("practice_sessions")
         val PRACTICE_TODAY_SEC = androidx.datastore.preferences.core.longPreferencesKey("practice_today_sec")
         val PRACTICE_DAY = androidx.datastore.preferences.core.stringPreferencesKey("practice_day")
+        val PRACTICE_GOAL_MIN = androidx.datastore.preferences.core.intPreferencesKey("practice_goal_min")
+        val PRACTICE_DAYS = androidx.datastore.preferences.core.stringPreferencesKey("practice_days")
         val PER_MIC_MEMORY = androidx.datastore.preferences.core.booleanPreferencesKey("per_mic_memory")
         val PITCH_ON = booleanPreferencesKey("pitch_on")
         val RECORD_DRY = booleanPreferencesKey("record_dry")
     }
+}
+
+/** "yyyy-MM-dd=seconds;..." -> day to monitored seconds. */
+private fun parsePracticeDays(raw: String?): Map<String, Long> =
+    raw?.split(';')?.mapNotNull { part ->
+        val kv = part.split('=')
+        if (kv.size == 2) kv[1].toLongOrNull()?.let { kv[0] to it } else null
+    }?.toMap() ?: emptyMap()
+
+/** Consecutive goal-meeting days ending today (or yesterday if today
+ *  is still short — the day isn't over yet). */
+private fun practiceStreak(days: Map<String, Long>, goalMin: Int, today: java.time.LocalDate): Int {
+    if (goalMin <= 0) return 0
+    val need = goalMin * 60L
+    var streak = 0
+    var day = if ((days[today.toString()] ?: 0L) >= need) today else today.minusDays(1)
+    while ((days[day.toString()] ?: 0L) >= need) {
+        streak++
+        day = day.minusDays(1)
+    }
+    return streak
 }

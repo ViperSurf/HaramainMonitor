@@ -135,6 +135,7 @@ fun MonitorScreen(
     val autoStartMic by viewModel.autoStartMic.collectAsState()
     val stopOnDisconnect by viewModel.stopOnDisconnect.collectAsState()
     val practiceSummary by viewModel.practiceSummary.collectAsState()
+    val practiceGoalMin by viewModel.practiceGoalMin.collectAsState()
     val perMicMemory by viewModel.perMicMemory.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val recordingStartedAt by viewModel.recordingStartedAtMs.collectAsState()
@@ -926,6 +927,17 @@ fun MonitorScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(6.dp))
+            Text("Daily practice goal", style = MaterialTheme.typography.titleSmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                listOf(0, 5, 10, 15, 20, 30).forEach { m ->
+                    FilterChip(
+                        selected = practiceGoalMin == m,
+                        onClick = { viewModel.setPracticeGoalMin(m) },
+                        label = { Text(if (m == 0) "Off" else "$m min") },
+                    )
+                }
+            }
             Spacer(Modifier.height(4.dp))
             Text("Recording folder", style = MaterialTheme.typography.titleSmall)
             Text(

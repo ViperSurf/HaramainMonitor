@@ -84,6 +84,7 @@ class MicMonitorService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        setupMediaSession()
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         if (MonitorState.router == null) MonitorState.router = AudioRouter(this)
     }
@@ -91,10 +92,7 @@ class MicMonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> { stopMonitoring(); return START_NOT_STICKY }
-            ACTION_TOGGLE_MUTE -> {
-                val p = MonitorState.params.value
-                MonitorState.params.value = p.copy(muted = !p.muted)
-            }
+            ACTION_TOGGLE_MUTE -> toggleMute()
             ACTION_TOGGLE_RECORD -> {
                 if (MonitorState.isRunning.value) toggleRecording()
             }
@@ -395,14 +393,89 @@ class MicMonitorService : Service() {
     }
 
     override fun onDestroy() {
+        mediaSession?.release()
+        mediaSession = null
         scope.cancel()
         releaseAll()
         super.onDestroy()
     }
 
+    // ---- media session (earbud / lock-screen controls) ----
+
+    private var mediaSession: android.media.session.MediaSession? = null
+
+    private fun toggleMute() {
+        val p = MonitorState.params.value
+        MonitorState.params.value = p.copy(muted = !p.muted)
+    }
+
+    private fun setMuted(muted: Boolean) {
+        val p = MonitorState.params.value
+        if (p.muted != muted) MonitorState.params.value = p.copy(muted = muted)
+    }
+
+    private fun setupMediaSession() {
+        mediaSession = android.media.session.MediaSession(this, "HaramainMonitor").apply {
+            setFlags(
+                android.media.session.MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or
+                    android.media.session.MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS,
+            )
+            setCallback(object : android.media.session.MediaSession.Callback() {
+                override fun onPlay() = setMuted(false)
+                override fun onPause() = setMuted(true)
+                override fun onStop() = stopMonitoring()
+
+                @Suppress("DEPRECATION")
+                override fun onMediaButtonEvent(mediaButtonIntent: Intent): Boolean {
+                    val key = mediaButtonIntent.getParcelableExtra<android.view.KeyEvent>(Intent.EXTRA_KEY_EVENT)
+                    if (key?.action == android.view.KeyEvent.ACTION_DOWN &&
+                        (key.keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
+                            key.keyCode == android.view.KeyEvent.KEYCODE_HEADSETHOOK)
+                    ) {
+                        toggleMute()
+                        return true
+                    }
+                    return super.onMediaButtonEvent(mediaButtonIntent)
+                }
+            })
+            setMetadata(
+                android.media.MediaMetadata.Builder()
+                    .putString(android.media.MediaMetadata.METADATA_KEY_TITLE, "Live monitoring")
+                    .putString(android.media.MediaMetadata.METADATA_KEY_ARTIST, "Haramain Monitor")
+                    .build(),
+            )
+        }
+    }
+
+    private fun syncMediaSession() {
+        val s = mediaSession ?: return
+        val running = MonitorState.isRunning.value
+        val muted = MonitorState.params.value.muted
+        s.isActive = running
+        s.setPlaybackState(
+            android.media.session.PlaybackState.Builder()
+                .setActions(
+                    android.media.session.PlaybackState.ACTION_PLAY or
+                        android.media.session.PlaybackState.ACTION_PAUSE or
+                        android.media.session.PlaybackState.ACTION_PLAY_PAUSE or
+                        android.media.session.PlaybackState.ACTION_STOP,
+                )
+                .setState(
+                    when {
+                        !running -> android.media.session.PlaybackState.STATE_STOPPED
+                        muted -> android.media.session.PlaybackState.STATE_PAUSED
+                        else -> android.media.session.PlaybackState.STATE_PLAYING
+                    },
+                    0, 1f,
+                )
+                .build(),
+        )
+    }
+
     // ---- notification ----
 
     private fun pushForeground() {
+        syncMediaSession()
         val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
@@ -424,7 +497,7 @@ class MicMonitorService : Service() {
         val muted = MonitorState.params.value.muted
         val running = MonitorState.isRunning.value
         val recording = MonitorState.isRecording.value
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentTitle(if (running) "Monitoring live" else "Haramain Monitor")
             .setContentText(
@@ -438,7 +511,6 @@ class MicMonitorService : Service() {
             .setContentIntent(openApp)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .addAction(
                 0, if (muted) "Unmute" else "Mute",
                 serviceAction(ACTION_TOGGLE_MUTE, 1),
@@ -448,7 +520,14 @@ class MicMonitorService : Service() {
                 serviceAction(ACTION_TOGGLE_RECORD, 3),
             )
             .addAction(0, "Stop", serviceAction(ACTION_STOP, 2))
-            .build()
+        mediaSession?.let { s ->
+            builder.setStyle(
+                NotificationCompat.MediaStyle()
+                    .setMediaSession(s.sessionToken)
+                    .setShowActionsInCompactView(0, 1, 2),
+            )
+        }
+        return builder.build()
     }
 
     private fun serviceAction(action: String, requestCode: Int): PendingIntent =
