@@ -131,6 +131,7 @@ fun MonitorScreen(
     val resumeOnLaunch by viewModel.resumeOnLaunch.collectAsState()
     val autoStopMinutes by viewModel.autoStopMinutes.collectAsState()
     val autoRecord by viewModel.autoRecord.collectAsState()
+    val voiceActivated by viewModel.voiceActivated.collectAsState()
     val perMicMemory by viewModel.perMicMemory.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val recordingStartedAt by viewModel.recordingStartedAtMs.collectAsState()
@@ -486,6 +487,12 @@ fun MonitorScreen(
                     label = { Text("Dry Vocal") },
                 )
             }
+            ToggleRow(
+                label = "Voice-activated recording",
+                checked = voiceActivated,
+                onCheckedChange = viewModel::setVoiceActivated,
+                help = "Recording starts when your voice crosses the Noise Gate threshold and stops after 4 seconds of quiet, so each take is saved as its own file. It follows your gate setting exactly, so raise or lower the gate to change what counts as voice. Turning this on turns Record Automatically off, and the other way round.",
+            )
             ToggleRow(
                 label = "Record automatically",
                 checked = autoRecord,

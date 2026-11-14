@@ -203,7 +203,20 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     val perMicMemory: StateFlow<Boolean> = settings.perMicMemory
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
-    fun setAutoRecord(on: Boolean) = viewModelScope.launch { settings.setAutoRecord(on) }
+    val voiceActivated: StateFlow<Boolean> = settings.voiceActivated
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    // Auto-record and voice-activated recording are mutually exclusive:
+    // enabling one turns the other off (the service also guards).
+    fun setAutoRecord(on: Boolean) = viewModelScope.launch {
+        settings.setAutoRecord(on)
+        if (on) settings.setVoiceActivated(false)
+    }
+
+    fun setVoiceActivated(on: Boolean) = viewModelScope.launch {
+        settings.setVoiceActivated(on)
+        if (on) settings.setAutoRecord(false)
+    }
     fun setPerMicMemory(on: Boolean) = viewModelScope.launch { settings.setPerMicMemory(on) }
 
     /** A/B compare: direct to the engine (momentary, latency-sensitive). */

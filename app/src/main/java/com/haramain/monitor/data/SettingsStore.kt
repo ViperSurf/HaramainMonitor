@@ -107,6 +107,14 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.edit { it[AUTO_RECORD] = on }
     }
 
+    /** Voice-activated recording: record only while the voice is present. Default off. */
+    val voiceActivated: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[VOICE_ACTIVATED] ?: false }
+
+    suspend fun setVoiceActivated(on: Boolean) {
+        context.settingsDataStore.edit { it[VOICE_ACTIVATED] = on }
+    }
+
     /** Remember a separate sound per microphone. Default on. */
     val perMicMemory: Flow<Boolean> =
         context.settingsDataStore.data.map { it[PER_MIC_MEMORY] ?: true }
@@ -218,6 +226,7 @@ class SettingsStore(private val context: Context) {
         val BUFFER_MODE = androidx.datastore.preferences.core.intPreferencesKey("buffer_mode")
         val AUTO_STOP_MIN = androidx.datastore.preferences.core.intPreferencesKey("auto_stop_min")
         val AUTO_RECORD = androidx.datastore.preferences.core.booleanPreferencesKey("auto_record")
+        val VOICE_ACTIVATED = androidx.datastore.preferences.core.booleanPreferencesKey("voice_activated")
         val PER_MIC_MEMORY = androidx.datastore.preferences.core.booleanPreferencesKey("per_mic_memory")
         val PITCH_ON = booleanPreferencesKey("pitch_on")
         val RECORD_DRY = booleanPreferencesKey("record_dry")

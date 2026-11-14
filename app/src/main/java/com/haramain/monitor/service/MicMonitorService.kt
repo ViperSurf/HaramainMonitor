@@ -61,6 +61,9 @@ class MicMonitorService : Service() {
     @Volatile private var autoStopCached = 10
     @Volatile private var autoRecordCached = false
     @Volatile private var lastNotifiedMuted: Boolean? = null
+    @Volatile private var varCached = false
+    @Volatile private var gateCachedDb = -45f
+    @Volatile private var lastGateVoiceMs = 0L
     @Volatile private var lastVoiceMs = 0L
     private val settings by lazy { SettingsStore(this) }
 
@@ -120,6 +123,7 @@ class MicMonitorService : Service() {
         router.attachPlatformEffects()
         applyParams()
         MonitorState.isRunning.value = true
+        MonitorTileService.requestUpdate(this)
         recoveryAttempts = 0
         scope.launch { settings.setWasRunning(true) }   // cleared only by an explicit stop
         pushForeground()
@@ -148,6 +152,8 @@ class MicMonitorService : Service() {
         scope.launch { settings.pitchOn.collectLatest { NativeAudioEngine.setPitchEnabled(it) } }
         scope.launch { settings.recordDry.collectLatest { recordDryCached = it } }
         scope.launch { settings.autoStopMinutes.collectLatest { autoStopCached = it } }
+        scope.launch { settings.voiceActivated.collectLatest { varCached = it } }
+        lastGateVoiceMs = System.currentTimeMillis()
         scope.launch {
             settings.autoRecord.collectLatest {
                 autoRecordCached = it
@@ -202,6 +208,21 @@ class MicMonitorService : Service() {
                     lastVoiceMs > 0 && nowTick - lastVoiceMs > stopAfterMin * 60_000L) {
                     stopMonitoring()
                     break
+                }
+                // Voice-activated recording: follows the user's own gate
+                // threshold on the same EMA the auto-stop uses. Starts a
+                // take when the voice crosses the gate; stops it after
+                // 4 s of quiet (1 s minimum take). Service-level only —
+                // the audio path is untouched.
+                if (voiceEma > gateCachedDb) lastGateVoiceMs = nowTick
+                if (varCached && !autoRecordCached) {
+                    if (!MonitorState.isRecording.value && voiceEma > gateCachedDb) {
+                        startRecordingInternal()
+                    } else if (MonitorState.isRecording.value &&
+                        nowTick - lastGateVoiceMs > 4_000L &&
+                        nowTick - MonitorState.recordingStartedAtMs.value > 1_000L) {
+                        stopRecordingInternal()
+                    }
                 }
                 outPeak = maxOf(NativeAudioEngine.outputPeakDb(), outPeak - 3f)
                 MonitorState.inputPeakDb.value = inPeak
@@ -287,6 +308,7 @@ class MicMonitorService : Service() {
         MonitorState.router?.releasePlatformEffects()
         MonitorState.router?.stopListening()
         MonitorState.isRunning.value = false
+        MonitorTileService.requestUpdate(this)
         MonitorState.inputPeakDb.value = -80f
         MonitorState.outputPeakDb.value = -80f
         releaseAll()
@@ -296,6 +318,7 @@ class MicMonitorService : Service() {
 
     private fun applyParams() {
         val p = MonitorState.params.value
+        gateCachedDb = p.gateThresholdDb
         val risk = MonitorState.router?.isFeedbackRisk() ?: true
         NativeAudioEngine.applyParams(
             if (focusMuted) p.copy(muted = true) else p,

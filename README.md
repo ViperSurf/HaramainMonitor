@@ -370,3 +370,20 @@ Two real offenders, both fired by slider drags, both fixed:
 4. Disk writes are debounced or event-only, never per-interaction.
 5. A feature that cannot meet this budget does not ship always-on;
    it ships behind a toggle that defaults off.
+
+## v2.6 — Quick Settings tile + voice-activated recording
+
+- **Quick Settings tile** (MonitorTileService): start/stop monitoring
+  from the shade, with live state. Pure system surface: it sends the
+  same intents the notification uses and syncs via
+  requestListeningState on start/stop. If an Android version refuses
+  a foreground-service start from a tile, the tap falls back to
+  opening the app. First ever start should be from the app so the
+  microphone permission is granted there.
+- **Voice-activated recording** (Recording section): starts a take
+  when the voice crosses the user's own Noise Gate threshold and
+  stops it after 4 s of quiet (1 s minimum take), one file per take.
+  Implemented entirely in the service on the existing voice EMA —
+  zero audio-path changes. Mutually exclusive with Record
+  Automatically (enforced in the view model and guarded in the
+  service); Auto-stop still never interrupts a take.
