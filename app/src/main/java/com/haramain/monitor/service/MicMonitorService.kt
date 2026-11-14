@@ -60,6 +60,8 @@ class MicMonitorService : Service() {
     @Volatile private var bufferModeCached = 1
     @Volatile private var autoStopCached = 10
     @Volatile private var autoRecordCached = false
+    @Volatile private var pitchOnCached = false
+    private var collectorsStarted = false
     @Volatile private var stopping = false
     private var autoRecordJob: Job? = null
     @Volatile private var lastNotifiedMuted: Boolean? = null
@@ -171,6 +173,12 @@ class MicMonitorService : Service() {
         }
         router.attachPlatformEffects()
         applyParams()
+        // Re-apply one-shot native settings on every (re)start (v3.6):
+        // their collectors now launch only once per service lifetime,
+        // so a fresh engine gets the cached values from here instead.
+        NativeAudioEngine.setBufferMode(bufferModeCached)
+        NativeAudioEngine.setPitchEnabled(pitchOnCached)
+        NativeAudioEngine.setUsageGame(router.selectedOutput()?.isBluetooth == true)
         MonitorState.isRunning.value = true
         sessionStartMs = System.currentTimeMillis()
         MonitorState.sessionStartMs.value = sessionStartMs
@@ -179,6 +187,14 @@ class MicMonitorService : Service() {
         scope.launch { settings.setWasRunning(true) }   // cleared only by an explicit stop
         pushForeground()
 
+        // QoL (v3.6): all settings collectors launch ONCE per
+        // service lifetime — relaunching them on every start
+        // stacked duplicates that re-fired on each DataStore
+        // edit. One-shot native values are re-applied at engine
+        // start from the caches instead (see startMonitoring).
+        val launchCollectors = !collectorsStarted
+        collectorsStarted = true
+        if (launchCollectors) {
         // Params -> native, continuously (lock-free atomics on the C++ side).
         scope.launch {
             MonitorState.params.collectLatest { p ->
@@ -200,13 +216,19 @@ class MicMonitorService : Service() {
                 NativeAudioEngine.setBufferMode(it)
             }
         }
-        scope.launch { settings.pitchOn.collectLatest { NativeAudioEngine.setPitchEnabled(it) } }
+        scope.launch {
+            settings.pitchOn.collectLatest {
+                pitchOnCached = it
+                NativeAudioEngine.setPitchEnabled(it)
+            }
+        }
         scope.launch { settings.recordDry.collectLatest { recordDryCached = it } }
         scope.launch { settings.autoStopMinutes.collectLatest { autoStopCached = it } }
         scope.launch { settings.voiceActivated.collectLatest { varCached = it } }
         scope.launch { settings.stopOnDisconnect.collectLatest { stopOnDiscCached = it } }
         scope.launch { settings.automationScope.collectLatest { automationScopeCached = it } }
         scope.launch { settings.autoTrim.collectLatest { autoTrimCached = it } }
+        }
         lastGateVoiceMs = System.currentTimeMillis()
         // One auto-record collector at a time: startMonitoring relaunches
         // collectors, and stacked duplicates all fired on DataStore
@@ -223,11 +245,13 @@ class MicMonitorService : Service() {
             }
         }
         lastVoiceMs = System.currentTimeMillis()
+        if (launchCollectors) {
         scope.launch {
             router.selectedOutputId.collectLatest { id ->
                 val device = router.outputs.value.firstOrNull { it.id == id }
                 NativeAudioEngine.setUsageGame(device?.isBluetooth == true)
             }
+        }
         }
         // Telemetry + native route-event watchdog + buffer health + recovery.
         telemetryJob = scope.launch {

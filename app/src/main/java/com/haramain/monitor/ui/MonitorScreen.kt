@@ -1217,12 +1217,6 @@ private fun ToggleRow(
     }
 }
 
-private fun pitchNoteName(hz: Float): String {
-    if (hz <= 0f) return "—"
-    val names = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
-    val midi = (69.0 + 12.0 * (kotlin.math.ln(hz / 440.0) / kotlin.math.ln(2.0))).roundToInt()
-    return names[((midi % 12) + 12) % 12] + (midi / 12 - 1).toString()
-}
 
 /**
  * Everything that updates at meter rate lives in this one composable, so
@@ -1311,19 +1305,20 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
     }
     Spacer(Modifier.height(6.dp))
 
-    // Pitch indicator toggle + readout.
+    // Voice Steadiness toggle + readout (the pitch tracker, reframed
+    // in v3.6: a breath mirror, not a tone judge — no note names).
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text("Pitch indicator", style = MaterialTheme.typography.labelLarge)
-        InfoTip("Pitch indicator", "Estimates the note you are voicing, for tuning your recitation tone. It only listens — it never changes the sound.")
+        Text("Voice steadiness", style = MaterialTheme.typography.labelLarge)
+        InfoTip("Voice steadiness", "A mirror for your breath, not a judge of your recitation. Recitation is not singing and there is no right note — in fact your voice should barely move. What this shows is how steady your voice sits while you hold a sound: on a long madd, watch whether it holds level or sags as your breath runs out. It also shows the level you started at, so you can choose one you can sustain to the end of a long prayer. It only listens — it never changes the sound.")
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (pitchOn) {
                 Text(
                     if (running && pitchHz > 0f) {
-                        pitchNoteName(pitchHz) + String.format(Locale.US, " • %.0f Hz", pitchHz)
+                        String.format(Locale.US, "%.0f Hz", pitchHz)
                     } else "Listening…",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,

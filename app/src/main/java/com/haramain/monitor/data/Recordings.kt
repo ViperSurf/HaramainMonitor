@@ -29,7 +29,17 @@ object Recordings {
                 val (duration, sr) = wavInfo(file)
                 RecordingItem(file, duration, sr)
             } else {
-                RecordingItem(file, 0L, 0)   // M4A exports: duration shown from player when played
+                // M4A exports: duration from the file's metadata.
+                val dur = try {
+                    val retriever = android.media.MediaMetadataRetriever()
+                    retriever.setDataSource(file.absolutePath)
+                    val d = retriever.extractMetadata(
+                        android.media.MediaMetadataRetriever.METADATA_KEY_DURATION,
+                    )?.toLongOrNull() ?: 0L
+                    retriever.release()
+                    d
+                } catch (_: Exception) { 0L }
+                RecordingItem(file, dur, 0)
             }
         }
     }

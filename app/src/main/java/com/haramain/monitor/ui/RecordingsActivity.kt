@@ -124,7 +124,13 @@ private fun RecordingsScreen(onBack: () -> Unit) {
     var lastLoopSeekMs by remember { mutableStateOf(0L) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(changed) { items = Recordings.list(context) }
+    suspend fun refreshItems() {
+        items = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            Recordings.list(context)
+        }
+    }
+
+    LaunchedEffect(changed) { refreshItems() }
 
     fun stopPlayer() {
         try { player?.stop() } catch (_: Exception) {}
@@ -152,8 +158,12 @@ private fun RecordingsScreen(onBack: () -> Unit) {
             // Pause / resume the loaded take (position is kept, so you
             // can set A/B points precisely).
             try {
-                if (isPaused) { player?.start(); isPaused = false }
-                else { player?.pause(); isPaused = true }
+                if (isPaused) {
+                    val a = loopA
+                    if (abLoop && a != null) player?.seekTo(a)
+                    else if (durationMs > 0 && progressMs >= durationMs - 300) player?.seekTo(0)
+                    player?.start(); isPaused = false
+                } else { player?.pause(); isPaused = true }
             } catch (_: Exception) {}
             return
         }
@@ -169,7 +179,12 @@ private fun RecordingsScreen(onBack: () -> Unit) {
                     try { seekTo(a); start(); isPaused = false }
                     catch (_: Exception) { stopPlayer() }
                 } else {
-                    stopPlayer()
+                    // Stay loaded at the end (v3.6): the take does not
+                    // close, so you can still set B here, arm the loop,
+                    // or scrub back. It closes when you pick another
+                    // take or leave the Library.
+                    isPaused = true
+                    progressMs = durationMs
                 }
             }
             prepare()
@@ -385,7 +400,7 @@ private fun RecordingsScreen(onBack: () -> Unit) {
                                             if (out != null) "Exported ${out.name}" else "M4A export failed",
                                             Toast.LENGTH_SHORT,
                                         ).show()
-                                        items = Recordings.list(context)
+                                        refreshItems()
                                     }
                                 }) {
                                     Icon(Icons.Filled.FileUpload, contentDescription = "Export as M4A")
@@ -405,7 +420,7 @@ private fun RecordingsScreen(onBack: () -> Unit) {
                                                 "Trim failed"
                                         }
                                         Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                        items = Recordings.list(context)
+                                        refreshItems()
                                     }
                                 }) {
                                     Icon(Icons.Filled.ContentCut, contentDescription = "Trim edge silence")
@@ -414,7 +429,7 @@ private fun RecordingsScreen(onBack: () -> Unit) {
                             IconButton(onClick = {
                                 if (playingPath == item.file.absolutePath) stopPlayer()
                                 item.file.delete()
-                                items = Recordings.list(context)
+                                refreshItems()
                             }) {
                                 Icon(Icons.Filled.Delete, contentDescription = "Delete")
                             }

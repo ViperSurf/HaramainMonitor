@@ -76,6 +76,8 @@ Safety ON (−3 dBFS ceiling).
   skip buttons, 0.5x / 0.75x / 1x playback with pitch preserved,
   progress readout, A-B phrase loop (Set A / Set B / Loop / Reset)
   with a completion guard so loops don't break out at the end.
+  A finished take STAYS loaded at the end — set B, arm the loop,
+  or scrub back without replaying from the top.
 - Silence Trim (edges only): floor-relative analysis writes a
   "<name>_trimmed.wav" beside the original; originals are never
   touched.
@@ -89,7 +91,10 @@ Safety ON (−3 dBFS ceiling).
   5 s+ count), stored per-day for 90 days.
 - Daily practice goal (Off / 5 / 10 / 15 / 20 / 30 min) with a streak
   counter for consecutive goal days.
-- Pitch indicator (mirror only — shows your voice's pitch, no scoring).
+- Voice Steadiness (the pitch tracker, reframed): a breath mirror —
+  Hz only, no note names, no scoring. Shows how steady your voice
+  sits on held sounds (madd) and the level you started at, so you
+  can pick one you can sustain.
 - Auto Setup calibration: speak for a few seconds and the app measures
   your voice and room, then sets Boost/Gate/Suppression for you.
 
@@ -628,3 +633,20 @@ Two real offenders, both fired by slider drags, both fixed:
   out after a while: seeks are cooldown-limited and reaching the
   end of the file with a loop armed returns to A instead of
   finishing playback.
+
+## v3.6 — Voice Steadiness; playback stays loaded; QoL pass
+
+- The pitch indicator is now Voice Steadiness: same tracker, honest
+  job. Hz readout only (note name removed — recitation has no right
+  note, and the voice should barely move); help text frames it as a
+  breath mirror for held sounds and a starting-level check.
+- Library: a take that plays to the end stays loaded there instead
+  of closing, so Set B / Loop / scrub still work at the end.
+  Pressing play again restarts (or jumps to A if a loop is armed).
+- QoL under the hood, no behavior changes intended: the service's
+  ~11 settings collectors now launch once per service lifetime
+  instead of stacking duplicates on every start (the class of bug
+  behind the v3.5 stop race), with buffer mode / pitch / BT usage
+  re-applied deterministically from caches at each engine start;
+  the Library list loads off the main thread, and M4A exports now
+  show their real durations.
