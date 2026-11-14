@@ -429,7 +429,7 @@ private fun RecordingsScreen(onBack: () -> Unit) {
                             IconButton(onClick = {
                                 if (playingPath == item.file.absolutePath) stopPlayer()
                                 item.file.delete()
-                                refreshItems()
+                                scope.launch { refreshItems() }
                             }) {
                                 Icon(Icons.Filled.Delete, contentDescription = "Delete")
                             }
