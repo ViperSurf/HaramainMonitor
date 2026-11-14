@@ -76,7 +76,7 @@ object NativeAudioEngine {
 
     /** (gate, suppressor, limiter) gains of the latest audio block, 0..1. */
     fun activity(): FloatArray {
-        val out = floatArrayOf(1f, 1f, 1f, 0f, 0f)
+        val out = floatArrayOf(1f, 1f, 1f, 0f, 0f, 0f, 1f)
         if (handle != 0L) nativeGetActivity(handle, out)
         return out
     }

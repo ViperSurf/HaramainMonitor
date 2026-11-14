@@ -375,6 +375,7 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
     const DspParams p = snapshotParams();
     float inPeak = 0.0f, outPeak = 0.0f;
     float minGate = 1.0f, minNs = 1.0f, minLim = 1.0f;
+    float maxComp = 0.0f, minDeEss = 1.0f;
     const bool recording = mRecording.load(std::memory_order_relaxed);
     size_t recHead = mRecHead.load(std::memory_order_relaxed);
 
@@ -398,6 +399,8 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
         minGate = std::min(minGate, mChain.lastGateGain());
         minNs = std::min(minNs, mChain.lastNsGain());
         minLim = std::min(minLim, mChain.lastLimiterGain());
+        maxComp = std::max(maxComp, mChain.lastCompGrDb());
+        minDeEss = std::min(minDeEss, mChain.lastDeEssGain());
         if (recording && !mRecDry.load(std::memory_order_relaxed)) {
             const size_t recTail = mRecTail.load(std::memory_order_acquire);
             if (recHead - recTail < kRecRingFrames) {
@@ -415,6 +418,8 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
     mActGate.store(std::min(mActGate.load(), minGate));
     mActNs.store(std::min(mActNs.load(), minNs));
     mActLim.store(std::min(mActLim.load(), minLim));
+    mActComp.store(std::max(mActComp.load(), maxComp));
+    mActDeEss.store(std::min(mActDeEss.load(), minDeEss));
     return oboe::DataCallbackResult::Continue;
 }
 

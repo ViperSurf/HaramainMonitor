@@ -14,8 +14,8 @@ android {
         applicationId = "com.haramain.monitor"
         minSdk = 26          // AAudio low-latency path is used on API 27+; Oboe falls back to OpenSL ES below that.
         targetSdk = 35
-        versionCode = 20
-        versionName = "3.2"
+        versionCode = 21
+        versionName = "3.3"
 
         // Build native code only for real device ABIs (+ x86_64 for emulators).
         ndk {

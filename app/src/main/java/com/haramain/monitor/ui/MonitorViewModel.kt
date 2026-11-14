@@ -1,6 +1,7 @@
 package com.haramain.monitor.ui
 
 import android.app.Application
+import android.content.Intent
 import android.content.Context
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
@@ -189,6 +190,8 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     val autoStopMinutes: StateFlow<Int> = settings.autoStopMinutes
         .stateIn(viewModelScope, SharingStarted.Eagerly, 10)
     val pitchHz: StateFlow<Float> = MonitorState.pitchHz
+    val actCompDb: StateFlow<Float> = MonitorState.actCompDb
+    val actDeEssDb: StateFlow<Float> = MonitorState.actDeEssDb
     val actGate: StateFlow<Float> = MonitorState.actGate
     val actSuppress: StateFlow<Float> = MonitorState.actSuppress
     val actLimiter: StateFlow<Float> = MonitorState.actLimiter
@@ -327,12 +330,23 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
                 val ids = devices.map { it.id }.toSet()
                 val prev = prevIds
                 prevIds = ids
-                if (prev != null && !MonitorState.isRunning.value && settings.autoStartMic.first()) {
-                    val sel = router.selectedInputId.value
-                    if (sel in ids && sel !in prev) {
-                        val ctx = getApplication<Application>()
-                        ContextCompat.startForegroundService(ctx, MicMonitorService.startIntent(ctx))
+                try {
+                    if (prev != null && !MonitorState.isRunning.value && settings.autoStartMic.first()) {
+                        val sel = router.selectedInputId.value
+                        if (sel in ids && sel !in prev) {
+                            val ctx = getApplication<Application>()
+                            try {
+                                ContextCompat.startForegroundService(ctx, MicMonitorService.startIntent(ctx))
+                            } catch (e: Exception) {
+                                // Android blocks microphone FGS starts from
+                                // the background (12+/14). Fall back to a
+                                // tap-to-start notification.
+                                notifyMicConnected(ctx)
+                            }
+                        }
                     }
+                } catch (_: Exception) {
+                    // One bad emission must never kill auto-start.
                 }
             }
         }
@@ -424,6 +438,39 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         router.stopListening()
         super.onCleared()
     }
+    /** Auto-start fallback: Android may refuse to start a microphone
+     *  foreground service while the app is in the background. Post a
+     *  high-priority notification instead; tapping it opens the app
+     *  with an extra that starts monitoring from the foreground. */
+    private fun notifyMicConnected(ctx: Application) {
+        try {
+            val channelId = "mic_connected"
+            val nm = ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE)
+                as android.app.NotificationManager
+            nm.createNotificationChannel(
+                android.app.NotificationChannel(
+                    channelId, "Microphone connected",
+                    android.app.NotificationManager.IMPORTANCE_HIGH,
+                ),
+            )
+            val open = android.app.PendingIntent.getActivity(
+                ctx, 7,
+                Intent(ctx, com.haramain.monitor.MainActivity::class.java)
+                    .putExtra(com.haramain.monitor.MainActivity.EXTRA_START_MONITORING, true)
+                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+            val n = androidx.core.app.NotificationCompat.Builder(ctx, channelId)
+                .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+                .setContentTitle("Your microphone connected")
+                .setContentText("Android blocked an automatic start — tap to start monitoring")
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build()
+            nm.notify(4202, n)
+        } catch (_: Exception) {}
+    }
+
 }
 
 /** Stored mic-label prefix marking a physical-mic group assignment

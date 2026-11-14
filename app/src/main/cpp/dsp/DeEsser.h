@@ -18,7 +18,7 @@ public:
     }
 
     inline float process(float x, int ch, float broadbandLevel, float amount01) {
-        if (amount01 <= 0.001f) return x;
+        if (amount01 <= 0.001f) { if (ch == 0) lastGain_ = 1.0f; return x; }
         const float band = std::fabs(band_[ch].process(x));
         const float env = (ch == 0) ? bandEnv_.process(band) : bandEnv_.state;
         // Sibilance = band energy disproportionate to the whole signal.
@@ -30,15 +30,20 @@ public:
         if (excess > 0.0f) cut = clampf(excess * 4.0f, 0.0f, 1.0f) * amount01 * 0.55f;
         const float hf = hfSplit_[ch].process(x);
         const float g = (ch == 0) ? gainSmooth_.process(1.0f - cut) : gainSmooth_.state;
+        if (ch == 0) lastGain_ = g;
         return x - hf + hf * g;
     }
 
+    /** Current HF duck gain (0..1, 1 = idle) for the Activity readout. */
+    float lastGain() const { return lastGain_; }
+
     void reset() {
         for (int ch = 0; ch < 2; ++ch) { band_[ch].reset(); hfSplit_[ch].reset(); }
-        bandEnv_.reset(); gainSmooth_.reset();
+        bandEnv_.reset(); gainSmooth_.reset(); lastGain_ = 1.0f;
     }
 
 private:
     Biquad band_[2], hfSplit_[2];
     OnePole bandEnv_, gainSmooth_;
+    float lastGain_ = 1.0f;
 };

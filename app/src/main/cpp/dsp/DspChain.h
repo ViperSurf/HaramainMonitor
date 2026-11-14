@@ -149,6 +149,8 @@ public:
     float lastGateGain() const { return lastGateGain_; }
     float lastNsGain() const { return lastNsGain_; }
     float lastLimiterGain() const { return limiterGain_; }
+    float lastCompGrDb() const { return compressor_.lastGrDb(); }
+    float lastDeEssGain() const { return deEsser_.lastGain(); }
 
     void reset() {
         staticRemover_.reset(); gate_.reset(); suppressor_.reset();

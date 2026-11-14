@@ -205,10 +205,10 @@ JNIEXPORT void JNICALL
 Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetActivity(JNIEnv *env, jobject, jlong handle, jfloatArray out) {
     auto *e = fromHandle(handle);
     if (!e || !out || env->GetArrayLength(out) < 3) return;
-    float g = 1.0f, n = 1.0f, l = 1.0f, hz = 0.0f, cnt = 0.0f;
-    e->activity(g, n, l, hz, cnt);
-    jfloat v[5] = {g, n, l, hz, cnt};
-    const jsize m = std::min<jsize>(env->GetArrayLength(out), 5);
+    float g = 1.0f, n = 1.0f, l = 1.0f, hz = 0.0f, cnt = 0.0f, comp = 0.0f, de = 1.0f;
+    e->activity(g, n, l, hz, cnt, comp, de);
+    jfloat v[7] = {g, n, l, hz, cnt, comp, de};
+    const jsize m = std::min<jsize>(env->GetArrayLength(out), 7);
     env->SetFloatArrayRegion(out, 0, m, v);
 }
 

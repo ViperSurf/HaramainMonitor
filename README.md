@@ -9,6 +9,88 @@ the screen turning off.
 settings:** Room 95% · Mix 52% · Compressor 70% · De-Esser 50% · Gate −45 dB ·
 Safety ON (−3 dBFS ceiling).
 
+## Feature reference (v3.3) — the full list
+
+### Live monitoring & sound
+- Ultra-low-latency duplex engine (Oboe/AAudio, device-native sample rate,
+  exclusive low-latency streams); runs in a foreground service with the
+  screen off.
+- 9-stage native DSP chain, in order: Mic Boost (soft-knee) -> Static
+  Remover (85 Hz high-pass + quiet-only hiss cut) -> Noise Gate (hold +
+  hysteresis) -> Noise Suppression (minimum-statistics, floor-relative,
+  depth to ~-16 dB) -> De-Esser (split-band, sibilance only) -> Compressor
+  (soft knee, auto makeup) -> EQ + 5-band Graphic EQ + reverb (Freeverb
+  with damping and stereo width) -> Stereo Balance -> anti-howl notch
+  bank -> Safety/Brickwall Limiter (-3 dBFS with Safety on).
+- Fixed vocal voicing EQ + user Bass/Treble + 3-band Vocal Tone Sculptor
+  (Warmth / Clarity / Air) + 5-band Graphic EQ (60/250/1k/4k/12k).
+- Presets: Masjid al-Haram (default; Room 95, Mix 52, Comp 70, De-Esser
+  50, Gate -45), Masjid an-Nabawi, Historic Stone Dome, Local Masjid
+  Hall, Lead (Imam), Studio Dry, Simple Studio, Auto (calibration),
+  Custom (your saved tweaks).
+- Processing Activity readouts under the meters: Gate %, Suppression %,
+  Limiter %, Compressor dB, De-esser dB, howl-notch indicator — the
+  subtle stages are visible even when they're inaudible by design.
+- Hold-to-hear-raw A/B compare ("hold to hear raw mic").
+- Anti-howl Feedback Guard: FFT detector + harmonic veto parks a narrow
+  notch on a ringing frequency before it becomes a howl (12 s expiry).
+- Start/stop anti-pop fade (~40 ms); session timer in the meters panel.
+
+### Routing & devices
+- Explicit input/output pickers; feedback-risk detection (speaker +
+  internal mic caps the limiter at -12 dBFS).
+- Monitor Ears: Stereo / Left Only / Right Only (recordings stay stereo).
+- Buffer modes: Ultra-Low / Balanced / Stable, with a live telemetry
+  pill (buffer frames, device-native rate, xrun count, latency ms).
+- Bluetooth suite: Usage::Game output path, dry-ducking for BT delay,
+  2-burst buffer floor; platform noise suppression never attaches,
+  platform echo cancellation only on speaker routes.
+- Per-microphone memory: each mic remembers its own sound (toggleable).
+- Teach-it-once mic naming: rename entries, group the phone's duplicate
+  entries into physical mics ("Bottom Mic 1/2", "Back Mic 1/2/3"), hide
+  entries you never use.
+- Auto-start when your mic connects (App Settings; if Android blocks a
+  background start you get a tap-to-start notification instead).
+- Auto-stop when your mic or output disconnects (3 s grace for re-plug
+  or re-pick) — a dropped mic never silently becomes the phone mic.
+- Quick Settings tile: tap to start/stop (optimistic), long-press opens
+  the app.
+
+### Recording & Library
+- Post-DSP stereo WAV recording (or Dry Vocal raw-input mode).
+- Auto-record on monitoring start; voice-activated recording (one file
+  per take, gate-driven); auto-stop monitoring when quiet (never stops
+  a recording in progress).
+- Auto-record pairs well with Trim: record hands-free, then cut the
+  dead air off both ends of each take with one tap.
+- Library: play / share / delete / export M4A / save to Downloads /
+  auto-copy finished takes to a folder you pick (SAF).
+- Library review tools: 0.5x / 0.75x / 1x playback with pitch
+  preserved, progress readout, A-B phrase loop (Set A / Set B / Loop).
+- Silence Trim (edges only): floor-relative analysis writes a
+  "<name>_trimmed.wav" beside the original; originals are never
+  touched.
+
+### Practice
+- Practice log: total time, session count, today's time (sessions of
+  5 s+ count), stored per-day for 90 days.
+- Daily practice goal (Off / 5 / 10 / 15 / 20 / 30 min) with a streak
+  counter for consecutive goal days.
+- Pitch indicator (mirror only — shows your voice's pitch, no scoring).
+- Auto Setup calibration: speak for a few seconds and the app measures
+  your voice and room, then sets Boost/Gate/Suppression for you.
+
+### App & safety
+- Collapsible sections (Routing and Presets open by default; your
+  layout is remembered), every control has a plain-language help text.
+- Settings lock with PIN; settings export/import as JSON (mic names,
+  section layout, preferences — PIN and recording folder excluded).
+- Themes: system / light / dark; themed app icon (brass crescent + mic
+  on deep emerald) with monochrome and round variants.
+- Earbud / lock-screen mute: media buttons and the system media
+  controls toggle mute while monitoring (media session owned by the
+  service).
+
 ## Presets
 
 | Preset | Room | Mix | Comp | De-Esser | Gate | Character |
@@ -483,3 +565,18 @@ Two real offenders, both fired by slider drags, both fixed:
   Library. Floor-relative analysis (100 ms slices, speech line =
   15th-percentile floor + 12 dB, 0.3 s padding), non-destructive
   "<name>_trimmed.wav" output; the original is never touched.
+
+## v3.3 — Proof for the quiet stages; connection automation hardened
+
+- Compressor and De-esser now report to the Activity readouts (native
+  activity array widened to 7 values): "Compressor -X.X dB - De-esser
+  -X.X dB" under the meters. Help texts for the subtle stages say
+  plainly what to expect (and what not to).
+- Auto-start: a blocked background start (Android 12+/14 microphone
+  FGS rules) no longer fails silently or kills the collector — it
+  posts a "Your microphone connected" notification; tapping it starts
+  monitoring from the foreground.
+- Stop-on-disconnect rebuilt state-based: a routed side that had a
+  concrete device and lost it arms the 3 s grace. Event ordering can
+  no longer make it miss.
+- README gained the full grouped Feature reference above.

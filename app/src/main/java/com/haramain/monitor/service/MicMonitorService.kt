@@ -63,8 +63,9 @@ class MicMonitorService : Service() {
     @Volatile private var lastNotifiedMuted: Boolean? = null
     @Volatile private var varCached = false
     @Volatile private var stopOnDiscCached = false
-    private var lastLostCount = 0
     private var disconnectGraceSec = 0
+    private var hadInSelection = false
+    private var hadOutSelection = false
     @Volatile private var gateCachedDb = -45f
     @Volatile private var lastGateVoiceMs = 0L
     @Volatile private var sessionStartMs = 0L
@@ -187,18 +188,24 @@ class MicMonitorService : Service() {
                     // Auto-stop on disconnect (v3.1): the router bumps
                     // selectionLostCount when the routed mic/output
                     // vanishes. 3 s grace covers re-plugs and re-picks.
-                    val lost = router.selectionLostCount.value
-                    if (lost != lastLostCount) {
-                        lastLostCount = lost
-                        if (stopOnDiscCached) disconnectGraceSec = 3
-                    }
-                    if (disconnectGraceSec > 0) {
-                        if (router.selectedInputId.value != -1 && router.selectedOutputId.value != -1) {
-                            disconnectGraceSec = 0   // a route was re-picked in time
-                        } else if (--disconnectGraceSec == 0) {
+                    // State-based (v3.3): a side that HAD a concrete
+                    // device and lost it (selection fell back to -1)
+                    // arms a 3 s grace; a re-pick inside the grace
+                    // cancels. Cannot be missed by event ordering.
+                    val selIn = router.selectedInputId.value
+                    val selOut = router.selectedOutputId.value
+                    if (selIn != -1) hadInSelection = true
+                    if (selOut != -1) hadOutSelection = true
+                    val lostNow = (hadInSelection && selIn == -1) ||
+                        (hadOutSelection && selOut == -1)
+                    if (stopOnDiscCached && lostNow) {
+                        if (disconnectGraceSec == 0) disconnectGraceSec = 3
+                        else if (--disconnectGraceSec == 0) {
                             stopMonitoring()
                             break
                         }
+                    } else {
+                        disconnectGraceSec = 0
                     }
                 }
                 // Signal-loss recovery: engine died underneath us (route
@@ -259,6 +266,11 @@ class MicMonitorService : Service() {
                 MonitorState.actSuppress.value = act[1]
                 MonitorState.actLimiter.value = act[2]
                 MonitorState.actNotchHz.value = act.getOrElse(3) { 0f }
+                MonitorState.actCompDb.value = act.getOrElse(5) { 0f }
+                val deGain = act.getOrElse(6) { 1f }
+                MonitorState.actDeEssDb.value =
+                    if (deGain >= 0.999f) 0f
+                    else (20.0 * kotlin.math.log10(deGain.toDouble())).toFloat().coerceAtLeast(-20f)
                 MonitorState.bufferFrames.value = NativeAudioEngine.bufferFrames()
                 val events = NativeAudioEngine.routeEventCount()
                 if (events != lastRouteEvents) {
@@ -326,6 +338,8 @@ class MicMonitorService : Service() {
 
     private fun stopMonitoring() {
         disconnectGraceSec = 0
+        hadInSelection = false
+        hadOutSelection = false
         MonitorState.sessionStartMs.value = 0L
         MonitorState.actNotchHz.value = 0f
         val startedAt = sessionStartMs

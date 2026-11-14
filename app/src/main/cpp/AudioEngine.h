@@ -47,7 +47,8 @@ public:
     float getPitchHz() const { return mPitchHz.load(); }
     // Worst (lowest) stage gains since the previous call; reading resets
     // the accumulators, so a 50 ms UI poll captures every dip in between.
-    void activity(float &gate, float &ns, float &lim, float &notchHz, float &notchCount) {
+    void activity(float &gate, float &ns, float &lim, float &notchHz, float &notchCount,
+                  float &compDb, float &deEssGain) {
         int count = 0; float hz = 0.0f;
         for (int s = 0; s < 4; ++s) {
             const float f = aNotchFreq[s].load();
@@ -55,6 +56,8 @@ public:
         }
         notchHz = hz; notchCount = static_cast<float>(count);
         activity(gate, ns, lim);
+        compDb = mActComp.load(); mActComp.store(0.0f);
+        deEssGain = mActDeEss.load(); mActDeEss.store(1.0f);
     }
     void activity(float &gate, float &ns, float &lim) {
         gate = mActGate.load(); ns = mActNs.load(); lim = mActLim.load();
@@ -102,6 +105,7 @@ private:
     std::atomic<bool> mPitchEnabled{false};
     std::atomic<float> mPitchHz{0.0f};
     std::atomic<float> mActGate{1.0f}, mActNs{1.0f}, mActLim{1.0f};
+    std::atomic<float> mActComp{0.0f}, mActDeEss{1.0f};
     std::atomic<bool> mPitchStop{false};
     std::thread mPitchThread;
     void pitchLoop();

@@ -514,7 +514,7 @@ fun MonitorScreen(
                 label = "Record automatically",
                 checked = autoRecord,
                 onCheckedChange = viewModel::setAutoRecord,
-                help = "Starts recording by itself whenever monitoring starts, using the source above. Turning it on while already monitoring starts a recording right away. Auto-stop never interrupts a recording.",
+                help = "Starts recording by itself whenever monitoring starts, using the source above. Turning it on while already monitoring starts a recording right away. Auto-stop never interrupts a recording. Pairs well with Trim in the Library: record hands-free, then cut the dead air off both ends of each take with one tap.",
             )
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -599,7 +599,7 @@ fun MonitorScreen(
         }
 
         // ---------- DSP controls ----------
-        ExpandableSection(title = "Vocal Chain", expanded = openSections["vocal"] == true, onExpandedChange = { viewModel.setSectionOpen("vocal", it) }, help = "Your voice passes through these stages in order: Boost, Static Remover, Gate, Suppression, De-Esser, Compressor, then into the space. The Activity line under the meters shows the Gate, Suppression and Limiter working.") {
+        ExpandableSection(title = "Vocal Chain", expanded = openSections["vocal"] == true, onExpandedChange = { viewModel.setSectionOpen("vocal", it) }, help = "Your voice passes through these stages in order: Boost, Static Remover, Gate, Suppression, De-Esser, Compressor, then into the space. The Activity lines under the meters show every stage working — including the quiet ones you can't hear.") {
             Text(
                 "Double-tap any control to reset it to its Haramain (Original) value.",
                 style = MaterialTheme.typography.bodySmall,
@@ -617,7 +617,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Static Remover",
-                help = "A high-pass filter plus hiss softening. It strips rumble, handling noise and airy hiss, mostly during your quiet moments.",
+                help = "A high-pass filter plus hiss softening. It strips rumble, handling noise and airy hiss, mostly during your quiet moments. You hear this one by its absence — clean pauses — never as a change to your voice.",
                 value = params.staticRemover, valueRange = 0f..100f, step = 1f,
                 defaultValue = 60f,
                 format = { pct(it) },
@@ -633,7 +633,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Suppression Depth",
-                help = "How strongly the learned room noise is pushed down. Higher is cleaner, but extremes can thin the voice.",
+                help = "How strongly the learned room noise is pushed down in the gaps between phrases (up to about 16 dB at 100). It never touches your voice while you speak, so in a quiet room there is almost nothing to hear — watch the Suppression % on the Activity line while a fan or AC runs.",
                 value = params.noiseSuppress, valueRange = 0f..100f, step = 1f,
                 defaultValue = 40f,
                 format = { pct(it) },
@@ -651,7 +651,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "De-Esser",
-                help = "Softens harsh 's' and 'sh' sounds so they don't pierce, especially on bright phone mics.",
+                help = "Softens harsh 's' and 'sh' sounds so they don't pierce, especially on bright phone mics. It only bites for a split second on strong sibilance — watch the De-esser readout under the meters while you repeat 's' sounds.",
                 value = params.deEsserPercent, valueRange = 0f..100f, step = 1f,
                 defaultValue = 50f,
                 format = { pct(it) },
@@ -660,7 +660,7 @@ fun MonitorScreen(
             )
             PrecisionControl(
                 label = "Compressor",
-                help = "Evens out your volume: soft words come up, loud peaks come down, so the level feels steady without riding the gain.",
+                help = "Evens out your volume: soft words come up, loud peaks come down, so the level feels steady without riding the gain. You won't hear it switch on — watch the Compressor readout under the meters: it shows how many dB it's holding back right now.",
                 value = params.compressorPercent, valueRange = 0f..100f, step = 1f,
                 defaultValue = 70f,
                 format = { pct(it) },
@@ -910,7 +910,7 @@ fun MonitorScreen(
             )
             ToggleRow(
                 label = "Auto-start when my mic connects",
-                help = "Starts monitoring automatically when your selected microphone appears (for example when you plug in the USB mic). Works while the app is open or still in memory.",
+                help = "Starts monitoring automatically when your selected microphone appears (for example when you plug in the USB mic). Works while the app is open or still in memory. If Android blocks the start while the app is in the background, you get a notification to tap instead.",
                 checked = autoStartMic,
                 onCheckedChange = viewModel::setAutoStartMic,
             )
@@ -1216,6 +1216,8 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
     val bufferMode by viewModel.bufferMode.collectAsState()
     val pitchOn by viewModel.pitchOn.collectAsState()
     val pitchHz by viewModel.pitchHz.collectAsState()
+    val actCompDb by viewModel.actCompDb.collectAsState()
+    val actDeEssDb by viewModel.actDeEssDb.collectAsState()
     val actGate by viewModel.actGate.collectAsState()
     val actSuppress by viewModel.actSuppress.collectAsState()
     val actLimiter by viewModel.actLimiter.collectAsState()
@@ -1259,6 +1261,11 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 6.dp),
+        )
+        Text(
+            String.format(Locale.US, "Compressor −%.1f dB • De-esser −%.1f dB", actCompDb, -actDeEssDb),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (sessionStartMs > 0) {
             val elapsedSec = ((System.currentTimeMillis() - sessionStartMs) / 1000).coerceAtLeast(0)

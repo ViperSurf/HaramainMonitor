@@ -17,7 +17,7 @@ public:
 
     // detectorInput: linked absolute level. Returns gain to apply (incl. makeup).
     inline float processGain(float detectorInput, float amount01) {
-        if (amount01 <= 0.001f) return 1.0f;
+        if (amount01 <= 0.001f) { lastGrDb_ = 0.0f; return 1.0f; }
         const float threshold = -30.0f + amount01 * 22.0f;      // -30..-8 dB
         const float ratio = 1.5f + amount01 * 4.5f;              // 1.5..6
         const float knee = 12.0f - amount01 * 8.0f;              // 12..4 dB
@@ -36,13 +36,18 @@ public:
                                     : gainState_ + release_.coeff * (target - gainState_);
         gainState_ = gain_;
         const float avgGrDb = grSmooth_.process(grDb);
+        lastGrDb_ = avgGrDb;
         const float makeupDb = clampf(avgGrDb * 0.5f, 0.0f, 12.0f);
         return gain_ * dbToLinear(makeupDb);
     }
 
-    void reset() { gain_ = 1; gainState_ = 1; attack_.reset(); release_.reset(); grSmooth_.reset(); }
+    void reset() { gain_ = 1; gainState_ = 1; lastGrDb_ = 0.0f; attack_.reset(); release_.reset(); grSmooth_.reset(); }
+
+    /** Smoothed gain reduction in dB (>= 0) for the Activity readout. */
+    float lastGrDb() const { return lastGrDb_; }
 
 private:
     OnePole attack_, release_, grSmooth_;
     float gain_ = 1.0f, gainState_ = 1.0f;
+    float lastGrDb_ = 0.0f;
 };

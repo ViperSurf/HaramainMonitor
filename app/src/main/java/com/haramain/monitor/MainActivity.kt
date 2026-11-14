@@ -27,6 +27,24 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        /** Set by the mic-connected fallback notification (v3.3). */
+        const val EXTRA_START_MONITORING = "com.haramain.monitor.extra.START_MONITORING"
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleStartExtra(intent)
+    }
+
+    private fun handleStartExtra(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_START_MONITORING, false) == true) {
+            try {
+                ContextCompat.startForegroundService(this, MicMonitorService.startIntent(this))
+            } catch (_: Exception) {}
+        }
+    }
+
     private val viewModel: MonitorViewModel by viewModels()
     private var micGranted by mutableStateOf(false)
 
@@ -38,6 +56,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        handleStartExtra(intent)
         super.onCreate(savedInstanceState)
         val settings = SettingsStore(this)
         refreshPermissionState()
