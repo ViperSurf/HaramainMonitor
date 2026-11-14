@@ -107,7 +107,7 @@ class PresetStore(private val context: Context) {
             eqBand12kDb = this[floatPreferencesKey(prefix + "geq12k")] ?: 0f,
             revDampingPercent = this[floatPreferencesKey(prefix + "revdamp")] ?: 50f,
             revWidthPercent = this[floatPreferencesKey(prefix + "revwidth")] ?: 100f,
-            monitorMode = this[intPreferencesKey(prefix + "monmode")] ?: 0,
+            monitorMode = this[androidx.datastore.preferences.core.intPreferencesKey(prefix + "monmode")] ?: 0,
             howlGuardOn = this[booleanPreferencesKey(prefix + "howlguard")] ?: true,
             muted = false,
         )
@@ -141,7 +141,7 @@ class PresetStore(private val context: Context) {
         this[floatPreferencesKey(prefix + "geq12k")] = p.eqBand12kDb
         this[floatPreferencesKey(prefix + "revdamp")] = p.revDampingPercent
         this[floatPreferencesKey(prefix + "revwidth")] = p.revWidthPercent
-        this[intPreferencesKey(prefix + "monmode")] = p.monitorMode
+        this[androidx.datastore.preferences.core.intPreferencesKey(prefix + "monmode")] = p.monitorMode
         this[booleanPreferencesKey(prefix + "howlguard")] = p.howlGuardOn
     }
 
