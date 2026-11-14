@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.haramain.monitor.audio.AudioParams
+import com.haramain.monitor.audio.PresetKind
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -47,6 +49,26 @@ class PresetStore(private val context: Context) {
 
     suspend fun saveAuto(params: AudioParams) {
         context.dataStore.edit { it.writeParams(PREFIX_AUTO, params) }
+    }
+
+    // ---- per-microphone memory (v2.4): each input device keeps its own sound ----
+
+    private fun devicePrefix(deviceId: Int) = "dev" + deviceId + "_"
+
+    suspend fun saveDeviceParams(deviceId: Int, params: AudioParams, kind: PresetKind) {
+        context.dataStore.edit {
+            it.writeParams(devicePrefix(deviceId), params)
+            it[stringPreferencesKey(devicePrefix(deviceId) + "kind")] = kind.name
+        }
+    }
+
+    suspend fun deviceParams(deviceId: Int): Pair<AudioParams, PresetKind>? {
+        val prefs = context.dataStore.data.first()
+        val params = prefs.readParams(devicePrefix(deviceId)) ?: return null
+        val kindName = prefs[stringPreferencesKey(devicePrefix(deviceId) + "kind")]
+        val kind = runCatching { PresetKind.valueOf(kindName ?: "CUSTOM") }
+            .getOrDefault(PresetKind.CUSTOM)
+        return params to kind
     }
 
     suspend fun saveLast(params: AudioParams) {

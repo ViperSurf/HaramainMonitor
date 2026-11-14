@@ -6,6 +6,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.haramain.monitor.audio.AudioParams
+import com.haramain.monitor.audio.NativeAudioEngine
 import com.haramain.monitor.audio.AudioRouter
 import com.haramain.monitor.audio.isBluetooth
 import com.haramain.monitor.audio.PresetKind
@@ -195,6 +196,17 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     fun setRecordDry(dry: Boolean) = viewModelScope.launch { settings.setRecordDry(dry) }
     fun setAutoStopMinutes(m: Int) = viewModelScope.launch { settings.setAutoStopMinutes(m) }
 
+    val autoRecord: StateFlow<Boolean> = settings.autoRecord
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val perMicMemory: StateFlow<Boolean> = settings.perMicMemory
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun setAutoRecord(on: Boolean) = viewModelScope.launch { settings.setAutoRecord(on) }
+    fun setPerMicMemory(on: Boolean) = viewModelScope.launch { settings.setPerMicMemory(on) }
+
+    /** A/B compare: direct to the engine (momentary, latency-sensitive). */
+    fun setBypass(on: Boolean) = NativeAudioEngine.setBypass(on)
+
     // ---- settings export / import ----
     suspend fun buildExportJson(): String =
         com.haramain.monitor.data.SettingsTransfer.buildExport(getApplication())
@@ -287,9 +299,26 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         _activePreset.value = PresetKind.CUSTOM
     }
 
+    private var lastInputId: Int? = null
+
     fun selectInput(deviceId: Int) {
+        val prevId = lastInputId
+        val leavingParams = MonitorState.params.value
+        val leavingKind = _activePreset.value
         router.selectInput(deviceId)
         refreshRisk()
+        lastInputId = deviceId
+        if (!perMicMemory.value || prevId == deviceId) return
+        viewModelScope.launch {
+            // Save the sound we are leaving under the old mic, then load
+            // the arriving mic's own sound if it has one.
+            if (prevId != null) store.saveDeviceParams(prevId, leavingParams, leavingKind)
+            val saved = store.deviceParams(deviceId)
+            if (saved != null) {
+                MonitorState.params.value = saved.first.copy(muted = MonitorState.params.value.muted)
+                _activePreset.value = saved.second
+            }
+        }
     }
 
     fun selectOutput(deviceId: Int) {

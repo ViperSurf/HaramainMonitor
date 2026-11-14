@@ -41,6 +41,7 @@ public:
     // Recording tap (post-DSP stereo) -> WAV file on a writer thread.
     bool startRecording(const std::string &path, bool dry = false);
     void setBufferMode(int32_t bursts);          // user latency preference: 1 / 2 / 4 bursts
+    void setBypass(bool on) { aBypass.store(on); }   // A/B compare (momentary)
     void setUsageGame(bool game);                // BT low-latency output usage hint
     void setPitchEnabled(bool on) { mPitchEnabled.store(on); }
     float getPitchHz() const { return mPitchHz.load(); }
@@ -130,6 +131,7 @@ private:
             aBalance{0.0f}, aEqLow{0.0f}, aEqHigh{0.0f}, aMasterDb{0.0f}, aSafetyCeilingDb{-3.0f},
             aBtDuck{50.0f}, aWarmth{0.0f}, aClarity{0.0f}, aAir{0.0f};
     std::atomic<bool> aSuppressOn{true}, aSafetyOn{true}, aFeedbackRisk{false}, aMuted{false},
+            aBypass{false},
             aBtDuckOn{false};
 
     DspChain mChain;

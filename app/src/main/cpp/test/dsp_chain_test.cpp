@@ -230,6 +230,21 @@ int main() {
         check("gate open for loud voice", chain.lastGateGain() > 0.9f, chain.lastGateGain());
     }
 
+    {
+        DspChain c2; c2.prepare(SR);
+        DspParams bp;                       // loud processing that bypass must ignore
+        bp.micBoostPercent = 200; bp.roomSizePercent = 100; bp.wetDryPercent = 100;
+        bp.bypass = true;
+        bool ok = true;
+        for (int i = 0; i < 4800; ++i) {
+            float l = 0.3f, r = 0.3f; c2.processFrame(l, r, bp);
+            if (std::fabs(l - 0.3f) > 1e-6f || std::fabs(r - 0.3f) > 1e-6f) ok = false;
+        }
+        check("A/B bypass passes the raw mic untouched", ok, 0.3f);
+        float l2 = 1.2f, r2 = 1.2f; c2.processFrame(l2, r2, bp);
+        check("A/B bypass still brickwalls at -0.5 dB", l2 <= 0.944f && l2 > 0.9f, l2);
+    }
+
     std::printf(failures == 0 ? "\nALL DSP TESTS PASSED\n" : "\n%d FAILURES\n", failures);
     return failures == 0 ? 0 : 1;
 }

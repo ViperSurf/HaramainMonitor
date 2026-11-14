@@ -5,7 +5,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -126,6 +130,8 @@ fun MonitorScreen(
     val hasPin by viewModel.hasPin.collectAsState()
     val resumeOnLaunch by viewModel.resumeOnLaunch.collectAsState()
     val autoStopMinutes by viewModel.autoStopMinutes.collectAsState()
+    val autoRecord by viewModel.autoRecord.collectAsState()
+    val perMicMemory by viewModel.perMicMemory.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val recordingStartedAt by viewModel.recordingStartedAtMs.collectAsState()
     val controlsEnabled = !locked
@@ -417,6 +423,34 @@ fun MonitorScreen(
             MetersPanel(viewModel)
         }
 
+        // ---------- A/B compare ----------
+        var abHeld by remember { mutableStateOf(false) }
+        DisposableEffect(Unit) { onDispose { viewModel.setBypass(false) } }
+        Surface(
+            modifier = Modifier.fillMaxWidth().height(50.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(onPress = {
+                        abHeld = true
+                        viewModel.setBypass(true)
+                        tryAwaitRelease()
+                        abHeld = false
+                        viewModel.setBypass(false)
+                    })
+                },
+            shape = RoundedCornerShape(25.dp),
+            color = if (abHeld) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = if (abHeld) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onSecondaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    if (abHeld) "RAW MIC — release to return" else "Hold to hear raw mic (A/B compare)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
         // ---------- Recording ----------
         ExpandableSection(
             help = "Processed Mix records exactly what you hear, space and all. Dry Vocal records the untouched microphone, best for hearing your real voice or editing later. Recordings are WAV; the Library can share them or export M4A.",
@@ -452,6 +486,12 @@ fun MonitorScreen(
                     label = { Text("Dry Vocal") },
                 )
             }
+            ToggleRow(
+                label = "Record automatically",
+                checked = autoRecord,
+                onCheckedChange = viewModel::setAutoRecord,
+                help = "Starts recording by itself whenever monitoring starts, using the source above. Turning it on while already monitoring starts a recording right away. Auto-stop never interrupts a recording.",
+            )
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
@@ -763,6 +803,12 @@ fun MonitorScreen(
                     )
                 }
             }
+            ToggleRow(
+                label = "Remember settings per microphone",
+                checked = perMicMemory,
+                onCheckedChange = viewModel::setPerMicMemory,
+                help = "Each microphone keeps its own sound: boost, gate, preset, everything. Switch mics and the app saves the sound you are leaving and restores the one you saved for the mic you picked. Best when your USB mic and phone mic need very different settings.",
+            )
             Spacer(Modifier.height(4.dp))
             Text("Recording folder", style = MaterialTheme.typography.titleSmall)
             Text(

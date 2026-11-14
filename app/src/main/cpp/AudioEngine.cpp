@@ -220,6 +220,7 @@ DspParams AudioEngine::snapshotParams() const {
     p.masterGainDb = aMasterDb.load(); p.safetyOn = aSafetyOn.load();
     p.safetyCeilingDb = aSafetyCeilingDb.load(); p.feedbackRisk = aFeedbackRisk.load();
     p.muted = aMuted.load();
+    p.bypass = aBypass.load();
     p.btDuckPercent = aBtDuck.load(); p.btDuckOn = aBtDuckOn.load();
     p.eqWarmthDb = aWarmth.load(); p.eqClarityDb = aClarity.load(); p.eqAirDb = aAir.load();
     return p;

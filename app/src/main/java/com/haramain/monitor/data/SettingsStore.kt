@@ -99,6 +99,22 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.edit { it[AUTO_STOP_MIN] = minutes.coerceIn(0, 60) }
     }
 
+    /** Start recording automatically whenever monitoring starts. Default off. */
+    val autoRecord: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[AUTO_RECORD] ?: false }
+
+    suspend fun setAutoRecord(on: Boolean) {
+        context.settingsDataStore.edit { it[AUTO_RECORD] = on }
+    }
+
+    /** Remember a separate sound per microphone. Default on. */
+    val perMicMemory: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[PER_MIC_MEMORY] ?: true }
+
+    suspend fun setPerMicMemory(on: Boolean) {
+        context.settingsDataStore.edit { it[PER_MIC_MEMORY] = on }
+    }
+
     val pitchOn: Flow<Boolean> =
         context.settingsDataStore.data.map { it[PITCH_ON] ?: false }
 
@@ -201,6 +217,8 @@ class SettingsStore(private val context: Context) {
         val SECTIONS = stringPreferencesKey("open_sections")
         val BUFFER_MODE = androidx.datastore.preferences.core.intPreferencesKey("buffer_mode")
         val AUTO_STOP_MIN = androidx.datastore.preferences.core.intPreferencesKey("auto_stop_min")
+        val AUTO_RECORD = androidx.datastore.preferences.core.booleanPreferencesKey("auto_record")
+        val PER_MIC_MEMORY = androidx.datastore.preferences.core.booleanPreferencesKey("per_mic_memory")
         val PITCH_ON = booleanPreferencesKey("pitch_on")
         val RECORD_DRY = booleanPreferencesKey("record_dry")
     }

@@ -206,4 +206,9 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeGetBufferFrames(JNIEnv *
     return e ? e->outputBufferFrames() : 0;
 }
 
+JNIEXPORT void JNICALL
+Java_com_haramain_monitor_audio_NativeAudioEngine_nativeSetBypass(JNIEnv *, jobject, jlong handle, jboolean on) {
+    if (auto *e = fromHandle(handle)) e->setBypass(on);
+}
+
 } // extern "C"

@@ -327,3 +327,19 @@ Field-report driven (v2.0.1 on a real phone + USB/Bluetooth mics):
   Presets section now carries an "About this space" panel describing
   the selected space (Masjid al-Haram, an-Nabawi, Stone Dome, Local
   Masjid Hall, Studio Dry, Simple Studio, Custom, Auto).
+
+## v2.4 — A/B compare, per-microphone memory, auto-record
+
+- **A/B compare:** a hold button under the master controls ("Hold to
+  hear raw mic") bypasses the entire chain while held — the untouched
+  microphone, protected only by a -0.5 dB brickwall — so the subtle
+  stages can be judged in one second. Momentary by design; never saved
+  into presets. Host-tested: raw passthrough + brickwall verified.
+- **Per-microphone memory (default on):** switching input devices saves
+  the current sound under the mic you are leaving and restores the
+  sound saved for the mic you picked (full params + preset kind, in
+  PresetStore device slots). Toggle in App Settings.
+- **Auto-record (default off):** recording starts by itself whenever
+  monitoring starts, in the Recording section; enabling it mid-session
+  starts a recording immediately. Auto-stop still never interrupts a
+  recording.

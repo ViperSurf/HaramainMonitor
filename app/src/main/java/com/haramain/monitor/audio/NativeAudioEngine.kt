@@ -60,6 +60,10 @@ object NativeAudioEngine {
         if (handle != 0L) nativeSetBufferMode(handle, bursts)
     }
 
+    fun setBypass(on: Boolean) {
+        if (handle != 0L) nativeSetBypass(handle, on)
+    }
+
     fun setUsageGame(game: Boolean) {
         if (handle != 0L) nativeSetUsageGame(handle, game)
     }
@@ -125,6 +129,7 @@ object NativeAudioEngine {
     private external fun nativeStopCalibration(handle: Long): FloatArray
     private external fun nativeStartRecording(handle: Long, path: String, dry: Boolean): Boolean
     private external fun nativeSetBufferMode(handle: Long, bursts: Int)
+    private external fun nativeSetBypass(handle: Long, on: Boolean)
     private external fun nativeSetUsageGame(handle: Long, game: Boolean)
     private external fun nativeSetPitchEnabled(handle: Long, on: Boolean)
     private external fun nativeGetPitchHz(handle: Long): Float

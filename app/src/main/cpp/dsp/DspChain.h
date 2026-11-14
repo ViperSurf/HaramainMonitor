@@ -34,6 +34,17 @@ public:
     // Process one stereo frame. Input is typically dual-mono mic (L==R).
     inline void processFrame(float &l, float &r, const DspParams &p) {
         if (p.muted) { l = 0; r = 0; return; }
+        if (p.bypass) {
+            // A/B compare: the raw mic, untouched except a -0.5 dB
+            // brickwall so a sudden shout cannot clip on the way out.
+            // Meters and activity readouts stay truthful.
+            lastInPeak_ = std::max(std::fabs(l), std::fabs(r));
+            l = clampf(l, -0.944f, 0.944f);
+            r = clampf(r, -0.944f, 0.944f);
+            lastOutPeak_ = std::max(std::fabs(l), std::fabs(r));
+            lastGateGain_ = 1.0f; lastNsGain_ = 1.0f; limiterGain_ = 1.0f;
+            return;
+        }
 
         // --- 1. Mic Boost: 0..200% -> 0..+24 dB, soft-knee saturation ---
         const float boostDb = (p.micBoostPercent / 100.0f) * 12.0f;

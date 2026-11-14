@@ -25,4 +25,5 @@ struct DspParams {
     float safetyCeilingDb   = -3.0f;   // ceiling while safety is ON
     bool  feedbackRisk      = false;   // set by Kotlin: speaker output + internal mic
     bool  muted             = false;
+    bool  bypass            = false;   // A/B compare: raw mic, brickwall only (momentary, never persisted)
 };

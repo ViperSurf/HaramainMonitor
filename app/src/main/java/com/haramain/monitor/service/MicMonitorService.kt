@@ -59,6 +59,7 @@ class MicMonitorService : Service() {
     @Volatile private var recordDryCached = false
     @Volatile private var bufferModeCached = 1
     @Volatile private var autoStopCached = 10
+    @Volatile private var autoRecordCached = false
     @Volatile private var lastVoiceMs = 0L
     private val settings by lazy { SettingsStore(this) }
 
@@ -136,6 +137,16 @@ class MicMonitorService : Service() {
         scope.launch { settings.pitchOn.collectLatest { NativeAudioEngine.setPitchEnabled(it) } }
         scope.launch { settings.recordDry.collectLatest { recordDryCached = it } }
         scope.launch { settings.autoStopMinutes.collectLatest { autoStopCached = it } }
+        scope.launch {
+            settings.autoRecord.collectLatest {
+                autoRecordCached = it
+                // Fires on the first emission inside startMonitoring too,
+                // which is exactly the auto-record moment.
+                if (it && MonitorState.isRunning.value && !MonitorState.isRecording.value) {
+                    startRecordingInternal()
+                }
+            }
+        }
         lastVoiceMs = System.currentTimeMillis()
         scope.launch {
             router.selectedOutputId.collectLatest { id ->
