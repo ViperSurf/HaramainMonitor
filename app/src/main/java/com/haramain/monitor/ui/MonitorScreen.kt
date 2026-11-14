@@ -675,18 +675,20 @@ fun MonitorScreen(
             PrecisionControl(
                 label = "Reverb Damping",
                 help = "How quickly the reverb tail loses its brightness. Low = bright, splashy reflections; high = a softer, darker, more natural tail.",
-                value = params.revDampingPercent.toDouble(),
-                range = 0f..100f, step = 1.0, decimals = 0, unit = "%",
-                centerValue = 50.0,
-                onChange = { update(params.copy(revDampingPercent = it.toFloat())) },
+                value = params.revDampingPercent, valueRange = 0f..100f, step = 1f,
+                defaultValue = 50f,
+                format = { pct(it) },
+                onValueChange = { v -> viewModel.update { it.copy(revDampingPercent = v) } },
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "Reverb Width",
                 help = "Stereo width of the reverb field only (your voice stays centered). Lower narrows the space toward mono; 100 is the full original width.",
-                value = params.revWidthPercent.toDouble(),
-                range = 0f..100f, step = 1.0, decimals = 0, unit = "%",
-                centerValue = 100.0,
-                onChange = { update(params.copy(revWidthPercent = it.toFloat())) },
+                value = params.revWidthPercent, valueRange = 0f..100f, step = 1f,
+                defaultValue = 100f,
+                format = { pct(it) },
+                onValueChange = { v -> viewModel.update { it.copy(revWidthPercent = v) } },
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "Stereo Balance",
@@ -762,45 +764,51 @@ fun MonitorScreen(
         }
 
         // ---------- Graphic EQ ----------
-        SectionCard(
-            id = "geq", title = "Graphic EQ", icon = Icons.Filled.GraphicEq,
-            help = "Five fixed bands that shape your voice BEFORE it enters the space. Cut 250 Hz to remove boxiness from a small room; lift 4 kHz for clarity; 60 Hz is mostly rumble — cutting it cleans recordings.",
-            openSections = openSections, onToggleSection = { viewModel.toggleSection(it) },
-        ) {
+        ExpandableSection(title = "Graphic EQ", expanded = openSections["geq"] == true, onExpandedChange = { viewModel.setSectionOpen("geq", it) }, help = "Five fixed bands that shape your voice BEFORE it enters the space. Cut 250 Hz to remove boxiness from a small room; lift 4 kHz for clarity; 60 Hz is mostly rumble — cutting it cleans recordings.") {
             PrecisionControl(
                 label = "60 Hz — Rumble",
-                value = params.eqBand60Db.toDouble(),
-                range = -12f..12f, step = 0.5, decimals = 1, unit = "dB",
-                centerValue = 0.0,
-                onChange = { update(params.copy(eqBand60Db = it.toFloat())) },
+                value = params.eqBand60Db, valueRange = -12f..12f, step = 0.5f,
+                defaultValue = 0f,
+                format = { db(it) },
+                onValueChange = { v -> viewModel.update { it.copy(eqBand60Db = v) } },
+                showCenterSnap = true,
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "250 Hz — Warmth / Boxiness",
-                value = params.eqBand250Db.toDouble(),
-                range = -12f..12f, step = 0.5, decimals = 1, unit = "dB",
-                centerValue = 0.0,
-                onChange = { update(params.copy(eqBand250Db = it.toFloat())) },
+                value = params.eqBand250Db, valueRange = -12f..12f, step = 0.5f,
+                defaultValue = 0f,
+                format = { db(it) },
+                onValueChange = { v -> viewModel.update { it.copy(eqBand250Db = v) } },
+                showCenterSnap = true,
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "1 kHz — Body",
-                value = params.eqBand1kDb.toDouble(),
-                range = -12f..12f, step = 0.5, decimals = 1, unit = "dB",
-                centerValue = 0.0,
-                onChange = { update(params.copy(eqBand1kDb = it.toFloat())) },
+                value = params.eqBand1kDb, valueRange = -12f..12f, step = 0.5f,
+                defaultValue = 0f,
+                format = { db(it) },
+                onValueChange = { v -> viewModel.update { it.copy(eqBand1kDb = v) } },
+                showCenterSnap = true,
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "4 kHz — Clarity",
-                value = params.eqBand4kDb.toDouble(),
-                range = -12f..12f, step = 0.5, decimals = 1, unit = "dB",
-                centerValue = 0.0,
-                onChange = { update(params.copy(eqBand4kDb = it.toFloat())) },
+                value = params.eqBand4kDb, valueRange = -12f..12f, step = 0.5f,
+                defaultValue = 0f,
+                format = { db(it) },
+                onValueChange = { v -> viewModel.update { it.copy(eqBand4kDb = v) } },
+                showCenterSnap = true,
+                enabled = controlsEnabled,
             )
             PrecisionControl(
                 label = "12 kHz — Air",
-                value = params.eqBand12kDb.toDouble(),
-                range = -12f..12f, step = 0.5, decimals = 1, unit = "dB",
-                centerValue = 0.0,
-                onChange = { update(params.copy(eqBand12kDb = it.toFloat())) },
+                value = params.eqBand12kDb, valueRange = -12f..12f, step = 0.5f,
+                defaultValue = 0f,
+                format = { db(it) },
+                onValueChange = { v -> viewModel.update { it.copy(eqBand12kDb = v) } },
+                showCenterSnap = true,
+                enabled = controlsEnabled,
             )
         }
 
