@@ -62,6 +62,9 @@ class MicMonitorService : Service() {
     @Volatile private var autoRecordCached = false
     @Volatile private var lastNotifiedMuted: Boolean? = null
     @Volatile private var varCached = false
+    @Volatile private var stopOnDiscCached = false
+    private var lastLostCount = 0
+    private var disconnectGraceSec = 0
     @Volatile private var gateCachedDb = -45f
     @Volatile private var lastGateVoiceMs = 0L
     @Volatile private var sessionStartMs = 0L
@@ -156,6 +159,7 @@ class MicMonitorService : Service() {
         scope.launch { settings.recordDry.collectLatest { recordDryCached = it } }
         scope.launch { settings.autoStopMinutes.collectLatest { autoStopCached = it } }
         scope.launch { settings.voiceActivated.collectLatest { varCached = it } }
+        scope.launch { settings.stopOnDisconnect.collectLatest { stopOnDiscCached = it } }
         lastGateVoiceMs = System.currentTimeMillis()
         scope.launch {
             settings.autoRecord.collectLatest {
@@ -180,7 +184,25 @@ class MicMonitorService : Service() {
             var voiceEma = -80f
             var tick = 0
             while (isActive) {
-                if (++tick % 20 == 0) NativeAudioEngine.adaptBuffer()   // ~1×/s xrun check
+                if (++tick % 20 == 0) {
+                    NativeAudioEngine.adaptBuffer()   // ~1×/s xrun check
+                    // Auto-stop on disconnect (v3.1): the router bumps
+                    // selectionLostCount when the routed mic/output
+                    // vanishes. 3 s grace covers re-plugs and re-picks.
+                    val lost = router.selectionLostCount.value
+                    if (lost != lastLostCount) {
+                        lastLostCount = lost
+                        if (stopOnDiscCached) disconnectGraceSec = 3
+                    }
+                    if (disconnectGraceSec > 0) {
+                        if (router.selectedInputId.value != -1 && router.selectedOutputId.value != -1) {
+                            disconnectGraceSec = 0   // a route was re-picked in time
+                        } else if (--disconnectGraceSec == 0) {
+                            stopMonitoring()
+                            break
+                        }
+                    }
+                }
                 // Signal-loss recovery: engine died underneath us (route
                 // fallback already failed natively) — try to bring it back.
                 if (MonitorState.isRunning.value && !NativeAudioEngine.isRunning()) {
@@ -305,6 +327,7 @@ class MicMonitorService : Service() {
     }
 
     private fun stopMonitoring() {
+        disconnectGraceSec = 0
         MonitorState.sessionStartMs.value = 0L
         MonitorState.actNotchHz.value = 0f
         val startedAt = sessionStartMs

@@ -107,6 +107,14 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.edit { it[AUTO_RECORD] = on }
     }
 
+    /** Stop monitoring when the routed mic or output disconnects. Default off. */
+    val stopOnDisconnect: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[STOP_ON_DISCONNECT] ?: false }
+
+    suspend fun setStopOnDisconnect(on: Boolean) {
+        context.settingsDataStore.edit { it[STOP_ON_DISCONNECT] = on }
+    }
+
     /** Auto-start monitoring when the selected microphone connects. Default off. */
     val autoStartMic: Flow<Boolean> =
         context.settingsDataStore.data.map { it[AUTO_START_MIC] ?: false }
@@ -258,6 +266,7 @@ class SettingsStore(private val context: Context) {
         val AUTO_RECORD = androidx.datastore.preferences.core.booleanPreferencesKey("auto_record")
         val VOICE_ACTIVATED = androidx.datastore.preferences.core.booleanPreferencesKey("voice_activated")
         val AUTO_START_MIC = androidx.datastore.preferences.core.booleanPreferencesKey("auto_start_mic")
+        val STOP_ON_DISCONNECT = androidx.datastore.preferences.core.booleanPreferencesKey("stop_on_disconnect")
         val PRACTICE_TOTAL_SEC = androidx.datastore.preferences.core.longPreferencesKey("practice_total_sec")
         val PRACTICE_SESSIONS = androidx.datastore.preferences.core.intPreferencesKey("practice_sessions")
         val PRACTICE_TODAY_SEC = androidx.datastore.preferences.core.longPreferencesKey("practice_today_sec")

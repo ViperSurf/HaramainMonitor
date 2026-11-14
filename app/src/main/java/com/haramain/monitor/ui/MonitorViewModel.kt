@@ -221,6 +221,11 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setAutoStartMic(on: Boolean) = viewModelScope.launch { settings.setAutoStartMic(on) }
 
+    val stopOnDisconnect: StateFlow<Boolean> = settings.stopOnDisconnect
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setStopOnDisconnect(on: Boolean) = viewModelScope.launch { settings.setStopOnDisconnect(on) }
+
     val practiceSummary: StateFlow<String> = settings.practiceStats
         .map { (totalSec, sessions, todaySec) ->
             fun fmt(sec: Long): String {

@@ -76,14 +76,22 @@ class AudioRouter(context: Context) {
     private val _selectedOutputId = MutableStateFlow(-1)
     val selectedOutputId: StateFlow<Int> = _selectedOutputId.asStateFlow()
 
+    /** Bumped every time a removal takes out the routed input or output.
+     *  The service uses it for auto-stop-on-disconnect (v3.1). */
+    private val _selectionLostCount = MutableStateFlow(0)
+    val selectionLostCount: StateFlow<Int> = _selectionLostCount.asStateFlow()
+
     private val callback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) = refresh()
         override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
             // If a routed device vanished, fall back to default immediately;
             // the native engine also self-heals via its error callback.
             val removedIds = removedDevices.map { it.id }.toSet()
-            if (_selectedInputId.value in removedIds) selectInput(-1)
-            if (_selectedOutputId.value in removedIds) selectOutput(-1)
+            val lostIn = _selectedInputId.value in removedIds
+            val lostOut = _selectedOutputId.value in removedIds
+            if (lostIn) selectInput(-1)
+            if (lostOut) selectOutput(-1)
+            if (lostIn || lostOut) _selectionLostCount.value++
             refresh()
         }
     }

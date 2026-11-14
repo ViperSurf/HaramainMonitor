@@ -456,3 +456,12 @@ Two real offenders, both fired by slider drags, both fixed:
 - Session timer under the meters, feeding the practice log.
 - Bass/Treble stay: they are the beginner-friendly layer over the
   Graphic EQ, whose help text now says so.
+
+## v3.1 — Auto-stop on disconnect
+
+- New App Settings toggle: "Stop when my mic or output disconnects"
+  (default off). The router now signals when a removal takes out the
+  routed input or output; the service gives a 3 second grace (a
+  re-plug or a quick re-pick cancels it) and then stops monitoring
+  instead of falling back to another device — a dropped mic while
+  leading should never silently become the phone mic in a pocket.

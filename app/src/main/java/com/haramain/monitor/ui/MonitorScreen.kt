@@ -133,6 +133,7 @@ fun MonitorScreen(
     val autoRecord by viewModel.autoRecord.collectAsState()
     val voiceActivated by viewModel.voiceActivated.collectAsState()
     val autoStartMic by viewModel.autoStartMic.collectAsState()
+    val stopOnDisconnect by viewModel.stopOnDisconnect.collectAsState()
     val practiceSummary by viewModel.practiceSummary.collectAsState()
     val perMicMemory by viewModel.perMicMemory.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
@@ -911,6 +912,12 @@ fun MonitorScreen(
                 help = "Starts monitoring automatically when your selected microphone appears (for example when you plug in the USB mic). Works while the app is open or still in memory.",
                 checked = autoStartMic,
                 onCheckedChange = viewModel::setAutoStartMic,
+            )
+            ToggleRow(
+                label = "Stop when my mic or output disconnects",
+                help = "If the microphone or headphones you routed vanish mid-session (USB unplugged, Bluetooth died), monitoring stops after a 3 second grace instead of falling back to another device. Made for leading: a dropped mic should never silently become the phone mic in your pocket.",
+                checked = stopOnDisconnect,
+                onCheckedChange = viewModel::setStopOnDisconnect,
             )
             Spacer(Modifier.height(8.dp))
             Text("Practice log", style = MaterialTheme.typography.titleSmall)
