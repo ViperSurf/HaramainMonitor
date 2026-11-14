@@ -60,6 +60,7 @@ class MicMonitorService : Service() {
     @Volatile private var bufferModeCached = 1
     @Volatile private var autoStopCached = 10
     @Volatile private var autoRecordCached = false
+    @Volatile private var lastNotifiedMuted: Boolean? = null
     @Volatile private var lastVoiceMs = 0L
     private val settings by lazy { SettingsStore(this) }
 
@@ -125,7 +126,17 @@ class MicMonitorService : Service() {
 
         // Params -> native, continuously (lock-free atomics on the C++ side).
         scope.launch {
-            MonitorState.params.collectLatest { applyParams(); pushForeground() }
+            MonitorState.params.collectLatest { p ->
+                applyParams()
+                // Smoothness (v2.5): the notification shows running /
+                // muted / recording only — NOT DSP values. Rebuilding it
+                // on every slider tick was SystemUI churn for nothing;
+                // refresh only when mute actually flips.
+                if (p.muted != lastNotifiedMuted) {
+                    lastNotifiedMuted = p.muted
+                    pushForeground()
+                }
+            }
         }
         // v2.0 settings -> native: buffer mode, pitch toggle, BT usage hint.
         scope.launch {

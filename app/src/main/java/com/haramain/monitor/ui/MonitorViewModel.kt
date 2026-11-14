@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -256,12 +258,17 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             store.autoPreset.collect { _hasAuto.value = it != null }
         }
-        // Persist edits + keep preset highlighting honest.
+        // Keep preset highlighting honest on every emission (cheap,
+        // in-memory comparisons only).
         viewModelScope.launch {
-            MonitorState.params.collect { p ->
-                store.saveLast(p)
-                _activePreset.value = detectPreset(p)
-            }
+            MonitorState.params.collect { p -> _activePreset.value = detectPreset(p) }
+        }
+        // Persist edits DEBOUNCED (v2.5 smoothness): a slider drag emits
+        // dozens of params per second, and a 19-key DataStore file write
+        // per emission is pure churn. Only the settled value is saved.
+        @OptIn(FlowPreview::class)
+        viewModelScope.launch {
+            MonitorState.params.debounce(600).collect { p -> store.saveLast(p) }
         }
         // Feedback risk follows route changes.
         viewModelScope.launch {

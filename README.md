@@ -343,3 +343,30 @@ Field-report driven (v2.0.1 on a real phone + USB/Bluetooth mics):
   monitoring starts, in the Recording section; enabling it mid-session
   starts a recording immediately. Auto-stop still never interrupts a
   recording.
+
+## v2.5 — Smoothness pass + the performance budget
+
+Audit of every hot path before adding more features. The native audio
+core was already clean and is unchanged: the output callback allocates
+nothing and takes no locks; recordings are written by a dedicated
+thread from a lock-free ring; pitch analysis runs on a worker thread
+at ~90 ms cadence and only when enabled; telemetry polls at 20 Hz and
+only the isolated meters panel recomposes at that rate.
+
+Two real offenders, both fired by slider drags, both fixed:
+- The params collector wrote all 19 keys to DataStore on EVERY
+  emission (dozens per second while dragging). Persistence is now
+  debounced: only the settled value (600 ms quiet) is saved.
+- The foreground notification was rebuilt and reposted on every
+  emission. It now refreshes only when its actual content changes
+  (mute flip; start/stop/record have their own call sites).
+
+**The standing budget for every future feature:**
+1. The audio callback gets O(1) flag checks only — no allocation, no
+   locks, no I/O, no per-sample work beyond the existing chain.
+2. Analysis runs on worker threads, decimated (pitch: 90 ms), gated
+   by an off switch.
+3. UI-rate state (20 Hz max) lives only in the meters panel.
+4. Disk writes are debounced or event-only, never per-interaction.
+5. A feature that cannot meet this budget does not ship always-on;
+   it ships behind a toggle that defaults off.
