@@ -71,6 +71,7 @@ object WavTrimmer {
             if (sliceCount < 4) return TrimResult.NothingToTrim
 
             // Per-slice RMS level in dB (recordings are local; 100 ms slices).
+            val levels = FloatArray(sliceCount)
             raf.seek(44)
             for (s in 0 until sliceCount) {
                 val frames = minOf(sliceFrames, totalFrames - s * sliceFrames)

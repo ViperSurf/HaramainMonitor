@@ -497,7 +497,7 @@ class MicMonitorService : Service() {
         val muted = MonitorState.params.value.muted
         val running = MonitorState.isRunning.value
         val recording = MonitorState.isRecording.value
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentTitle(if (running) "Monitoring live" else "Haramain Monitor")
             .setContentText(
@@ -520,14 +520,7 @@ class MicMonitorService : Service() {
                 serviceAction(ACTION_TOGGLE_RECORD, 3),
             )
             .addAction(0, "Stop", serviceAction(ACTION_STOP, 2))
-        mediaSession?.let { s ->
-            builder.setStyle(
-                NotificationCompat.MediaStyle()
-                    .setMediaSession(s.sessionToken)
-                    .setShowActionsInCompactView(0, 1, 2),
-            )
-        }
-        return builder.build()
+            .build()
     }
 
     private fun serviceAction(action: String, requestCode: Int): PendingIntent =

@@ -470,9 +470,9 @@ Two real offenders, both fired by slider drags, both fixed:
 
 - Earbud / lock-screen mute: the service now owns a media session.
   Headset-hook and play/pause media buttons toggle mute; play =
-  unmute, pause = mute, stop = stop monitoring. The notification is
-  a MediaStyle notification tied to the session, so lock-screen
-  transport controls reflect live/muted state.
+  unmute, pause = mute, stop = stop monitoring. Android's media
+  controls (lock screen / Quick Settings) pick the session up and
+  reflect live vs muted state from its playback state.
 - Library review: per-take playback controls while a take plays —
   speed 0.5x / 0.75x / 1x with pitch preserved, progress readout,
   and an A-B phrase loop (Set A / Set B / Loop) for drilling.
