@@ -178,7 +178,6 @@ class MicMonitorService : Service() {
                 val stopAfterMin = autoStopCached
                 if (stopAfterMin > 0 && !MonitorState.isRecording.value &&
                     lastVoiceMs > 0 && nowTick - lastVoiceMs > stopAfterMin * 60_000L) {
-                    Log.i(TAG, "Auto-stop: $stopAfterMin min without voice")
                     stopMonitoring()
                     break
                 }
