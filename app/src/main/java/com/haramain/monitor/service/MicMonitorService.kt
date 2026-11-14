@@ -95,7 +95,10 @@ class MicMonitorService : Service() {
         else -> true
     }
 
-    private fun captureBaseline(actIn: Int, actOut: Int, selIn: Int, selOut: Int, lostCount: Int) {
+    private fun captureBaseline(
+        router: com.haramain.monitor.audio.AudioRouter,
+        actIn: Int, actOut: Int, selIn: Int, selOut: Int, lostCount: Int,
+    ) {
         baseInId = actIn
         baseOutId = actOut
         baseSelIn = selIn
@@ -248,13 +251,13 @@ class MicMonitorService : Service() {
                     val (actIn, actOut) = NativeAudioEngine.routeDeviceIds()
                     val lostCount = router.selectionLostCount.value
                     if (!baselineSet && actIn != 0) {
-                        captureBaseline(actIn, actOut, selIn, selOut, lostCount)
+                        captureBaseline(router, actIn, actOut, selIn, selOut, lostCount)
                     }
                     var rebaselined = false
                     if (baselineSet &&
                         ((selIn != baseSelIn && selIn != -1) || (selOut != baseSelOut && selOut != -1))
                     ) {
-                        captureBaseline(actIn, actOut, selIn, selOut, lostCount)
+                        captureBaseline(router, actIn, actOut, selIn, selOut, lostCount)
                         rebaselined = true
                     }
                     val armA = baselineSet && !rebaselined &&
