@@ -72,8 +72,10 @@ Safety ON (−3 dBFS ceiling).
   automatically.
 - Library: play / share / delete / export M4A / save to Downloads /
   auto-copy finished takes to a folder you pick (SAF).
-- Library review tools: 0.5x / 0.75x / 1x playback with pitch
-  preserved, progress readout, A-B phrase loop (Set A / Set B / Loop).
+- Library review tools: pause/resume, a seek slider, -10s / +10s
+  skip buttons, 0.5x / 0.75x / 1x playback with pitch preserved,
+  progress readout, A-B phrase loop (Set A / Set B / Loop / Reset)
+  with a completion guard so loops don't break out at the end.
 - Silence Trim (edges only): floor-relative analysis writes a
   "<name>_trimmed.wav" beside the original; originals are never
   touched.
@@ -608,3 +610,21 @@ Two real offenders, both fired by slider drags, both fixed:
 - Compressor/De-esser Activity readout line removed (v3.3's
   experiment): the values hover at ~0.0 dB at real levels and read
   as noise; the stages keep working silently.
+
+## v3.5 — Auto-record stop race fixed; Library player grows up
+
+- Bug (field report): with Record Automatically on, stopping
+  monitoring could turn recording ON, and recording could continue
+  after the stop. Cause: the practice-log DataStore write inside
+  stopMonitoring re-fired the auto-record collector while isRunning
+  was still true and recording had just been stopped; stacked
+  duplicate collectors from repeated startMonitoring calls made it
+  likelier. Fixes: a central guard in startRecordingInternal (never
+  start while stopped/stopping), isRunning=false + stopping flag
+  set FIRST in stopMonitoring, a single deduplicated auto-record
+  collector, and distinctUntilChanged on the setting flow.
+- Library player: pause/resume (position kept), seek slider,
+  -10s/+10s skip buttons, Reset A-B. The A-B loop no longer breaks
+  out after a while: seeks are cooldown-limited and reaching the
+  end of the file with a loop armed returns to A instead of
+  finishing playback.

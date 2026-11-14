@@ -32,6 +32,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -118,6 +119,9 @@ private fun RecordingsScreen(onBack: () -> Unit) {
     var loopB by remember { mutableStateOf<Int?>(null) }
     var abLoop by remember { mutableStateOf(false) }
     var waqfMarks by remember { mutableStateOf<List<Int>?>(null) }
+    var isPaused by remember { mutableStateOf(false) }
+    var scrubbing by remember { mutableStateOf(false) }
+    var lastLoopSeekMs by remember { mutableStateOf(0L) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(changed) { items = Recordings.list(context) }
@@ -133,6 +137,7 @@ private fun RecordingsScreen(onBack: () -> Unit) {
         loopB = null
         abLoop = false
         waqfMarks = null
+        isPaused = false
     }
 
     fun applySpeed(s: Float) {
@@ -143,14 +148,30 @@ private fun RecordingsScreen(onBack: () -> Unit) {
     }
 
     fun togglePlay(item: RecordingItem) {
-        if (playingPath == item.file.absolutePath) {
-            stopPlayer()
+        if (playingPath == item.file.absolutePath && player != null) {
+            // Pause / resume the loaded take (position is kept, so you
+            // can set A/B points precisely).
+            try {
+                if (isPaused) { player?.start(); isPaused = false }
+                else { player?.pause(); isPaused = true }
+            } catch (_: Exception) {}
             return
         }
         stopPlayer()
         player = MediaPlayer().apply {
             setDataSource(item.file.absolutePath)
-            setOnCompletionListener { stopPlayer() }
+            setOnCompletionListener {
+                // If an A-B loop is armed, reaching the end loops back
+                // to A instead of ending playback (the loop watcher can
+                // miss the final frames; this is the safety net).
+                val a = loopA
+                if (abLoop && a != null) {
+                    try { seekTo(a); start(); isPaused = false }
+                    catch (_: Exception) { stopPlayer() }
+                } else {
+                    stopPlayer()
+                }
+            }
             prepare()
             durationMs = duration
             if (speed != 1f) {
@@ -159,6 +180,7 @@ private fun RecordingsScreen(onBack: () -> Unit) {
             start()
         }
         playingPath = item.file.absolutePath
+        isPaused = false
     }
 
     // Progress + A-B loop watcher for the playing take.
@@ -167,9 +189,15 @@ private fun RecordingsScreen(onBack: () -> Unit) {
             val p = player
             if (p != null) {
                 try {
-                    progressMs = p.currentPosition
+                    if (!scrubbing) progressMs = p.currentPosition
                     val a = loopA; val b = loopB
-                    if (abLoop && a != null && b != null && p.currentPosition >= b) p.seekTo(a)
+                    val now = System.currentTimeMillis()
+                    if (abLoop && a != null && b != null && !isPaused &&
+                        p.currentPosition >= b && now - lastLoopSeekMs > 400
+                    ) {
+                        lastLoopSeekMs = now
+                        p.seekTo(a)
+                    }
                 } catch (_: Exception) {}
             }
             kotlinx.coroutines.delay(200)
@@ -225,6 +253,32 @@ private fun RecordingsScreen(onBack: () -> Unit) {
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            Slider(
+                                value = progressMs.toFloat(),
+                                onValueChange = { v ->
+                                    scrubbing = true
+                                    progressMs = v.toInt()
+                                    try { player?.seekTo(v.toInt()) } catch (_: Exception) {}
+                                },
+                                onValueChangeFinished = { scrubbing = false },
+                                valueRange = 0f..durationMs.toFloat().coerceAtLeast(1f),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                OutlinedButton(onClick = {
+                                    try { player?.seekTo(maxOf(0, progressMs - 10_000)) } catch (_: Exception) {}
+                                }) { Text("−10s") }
+                                OutlinedButton(onClick = {
+                                    try { player?.seekTo(minOf(durationMs, progressMs + 10_000)) } catch (_: Exception) {}
+                                }) { Text("+10s") }
+                                OutlinedButton(
+                                    onClick = { loopA = null; loopB = null; abLoop = false },
+                                    enabled = loopA != null || loopB != null,
+                                ) { Text("Reset A-B") }
+                            }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -292,8 +346,8 @@ private fun RecordingsScreen(onBack: () -> Unit) {
                         Row {
                             IconButton(onClick = { togglePlay(item) }) {
                                 Icon(
-                                    if (playingPath == item.file.absolutePath) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                    contentDescription = if (playingPath == item.file.absolutePath) "Stop" else "Play",
+                                    if (playingPath == item.file.absolutePath && !isPaused) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                    contentDescription = if (playingPath == item.file.absolutePath && !isPaused) "Pause" else "Play",
                                 )
                             }
                             IconButton(onClick = {

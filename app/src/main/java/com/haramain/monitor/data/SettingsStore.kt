@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.security.MessageDigest
@@ -102,6 +103,7 @@ class SettingsStore(private val context: Context) {
     /** Start recording automatically whenever monitoring starts. Default off. */
     val autoRecord: Flow<Boolean> =
         context.settingsDataStore.data.map { it[AUTO_RECORD] ?: false }
+            .distinctUntilChanged()
 
     suspend fun setAutoRecord(on: Boolean) {
         context.settingsDataStore.edit { it[AUTO_RECORD] = on }

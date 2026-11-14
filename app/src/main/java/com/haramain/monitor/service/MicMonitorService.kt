@@ -60,6 +60,8 @@ class MicMonitorService : Service() {
     @Volatile private var bufferModeCached = 1
     @Volatile private var autoStopCached = 10
     @Volatile private var autoRecordCached = false
+    @Volatile private var stopping = false
+    private var autoRecordJob: Job? = null
     @Volatile private var lastNotifiedMuted: Boolean? = null
     @Volatile private var varCached = false
     @Volatile private var stopOnDiscCached = false
@@ -150,6 +152,7 @@ class MicMonitorService : Service() {
     }
 
     private fun startMonitoring() {
+        stopping = false
         if (MonitorState.isRunning.value) { pushForeground(); return }
         val router = MonitorState.router ?: AudioRouter(this).also { MonitorState.router = it }
         router.startListening()
@@ -205,12 +208,16 @@ class MicMonitorService : Service() {
         scope.launch { settings.automationScope.collectLatest { automationScopeCached = it } }
         scope.launch { settings.autoTrim.collectLatest { autoTrimCached = it } }
         lastGateVoiceMs = System.currentTimeMillis()
-        scope.launch {
+        // One auto-record collector at a time: startMonitoring relaunches
+        // collectors, and stacked duplicates all fired on DataStore
+        // edits (v3.5 stop-race fix).
+        autoRecordJob?.cancel()
+        autoRecordJob = scope.launch {
             settings.autoRecord.collectLatest {
                 autoRecordCached = it
                 // Fires on the first emission inside startMonitoring too,
                 // which is exactly the auto-record moment.
-                if (it && MonitorState.isRunning.value && !MonitorState.isRecording.value) {
+                if (it && !stopping && MonitorState.isRunning.value && !MonitorState.isRecording.value) {
                     startRecordingInternal()
                 }
             }
@@ -357,6 +364,12 @@ class MicMonitorService : Service() {
     }
 
     private fun startRecordingInternal() {
+        // Central guard (v3.5): a recording can NEVER start while
+        // monitoring is stopped or stopping — this kills the stop race
+        // where a DataStore edit (practice log write) re-fired the
+        // auto-record collector mid-teardown and restarted recording
+        // on a stopped engine.
+        if (stopping || !MonitorState.isRunning.value) return
         val dir = recordingsDir(this)
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val file = File(dir, "Haramain_$stamp.wav")
@@ -408,6 +421,10 @@ class MicMonitorService : Service() {
     }
 
     private fun stopMonitoring() {
+        // Teardown order matters (v3.5): mark stopping and not-running
+        // FIRST, before any DataStore write below can re-fire collectors.
+        stopping = true
+        MonitorState.isRunning.value = false
         disconnectGraceSec = 0
         hadInSelection = false
         hadOutSelection = false
