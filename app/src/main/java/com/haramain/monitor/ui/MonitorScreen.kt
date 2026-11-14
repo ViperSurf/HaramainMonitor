@@ -889,7 +889,7 @@ fun MonitorScreen(
                 label = "Auto-start when my mic connects",
                 help = "Starts monitoring automatically when your selected microphone appears (for example when you plug in the USB mic). Works while the app is open or still in memory.",
                 checked = autoStartMic,
-                onChange = { viewModel.setAutoStartMic(it) },
+                onCheckedChange = viewModel::setAutoStartMic,
             )
             Spacer(Modifier.height(8.dp))
             Text("Practice log", style = MaterialTheme.typography.titleSmall)
