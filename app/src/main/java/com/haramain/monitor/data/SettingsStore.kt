@@ -107,6 +107,36 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.edit { it[AUTO_RECORD] = on }
     }
 
+    /** Auto-start monitoring when the selected microphone connects. Default off. */
+    val autoStartMic: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[AUTO_START_MIC] ?: false }
+
+    suspend fun setAutoStartMic(on: Boolean) {
+        context.settingsDataStore.edit { it[AUTO_START_MIC] = on }
+    }
+
+    /** Practice log: (total seconds, sessions, today's seconds). */
+    val practiceStats: Flow<Triple<Long, Int, Long>> =
+        context.settingsDataStore.data.map { p ->
+            val today = java.time.LocalDate.now().toString()
+            Triple(
+                p[PRACTICE_TOTAL_SEC] ?: 0L,
+                p[PRACTICE_SESSIONS] ?: 0,
+                if (p[PRACTICE_DAY] == today) (p[PRACTICE_TODAY_SEC] ?: 0L) else 0L,
+            )
+        }
+
+    suspend fun addPracticeSession(seconds: Long) {
+        val today = java.time.LocalDate.now().toString()
+        context.settingsDataStore.edit { p ->
+            val sameDay = p[PRACTICE_DAY] == today
+            p[PRACTICE_TOTAL_SEC] = (p[PRACTICE_TOTAL_SEC] ?: 0L) + seconds
+            p[PRACTICE_SESSIONS] = (p[PRACTICE_SESSIONS] ?: 0) + 1
+            p[PRACTICE_TODAY_SEC] = (if (sameDay) (p[PRACTICE_TODAY_SEC] ?: 0L) else 0L) + seconds
+            p[PRACTICE_DAY] = today
+        }
+    }
+
     /** Voice-activated recording: record only while the voice is present. Default off. */
     val voiceActivated: Flow<Boolean> =
         context.settingsDataStore.data.map { it[VOICE_ACTIVATED] ?: false }
@@ -227,6 +257,11 @@ class SettingsStore(private val context: Context) {
         val AUTO_STOP_MIN = androidx.datastore.preferences.core.intPreferencesKey("auto_stop_min")
         val AUTO_RECORD = androidx.datastore.preferences.core.booleanPreferencesKey("auto_record")
         val VOICE_ACTIVATED = androidx.datastore.preferences.core.booleanPreferencesKey("voice_activated")
+        val AUTO_START_MIC = androidx.datastore.preferences.core.booleanPreferencesKey("auto_start_mic")
+        val PRACTICE_TOTAL_SEC = androidx.datastore.preferences.core.longPreferencesKey("practice_total_sec")
+        val PRACTICE_SESSIONS = androidx.datastore.preferences.core.intPreferencesKey("practice_sessions")
+        val PRACTICE_TODAY_SEC = androidx.datastore.preferences.core.longPreferencesKey("practice_today_sec")
+        val PRACTICE_DAY = androidx.datastore.preferences.core.stringPreferencesKey("practice_day")
         val PER_MIC_MEMORY = androidx.datastore.preferences.core.booleanPreferencesKey("per_mic_memory")
         val PITCH_ON = booleanPreferencesKey("pitch_on")
         val RECORD_DRY = booleanPreferencesKey("record_dry")

@@ -24,6 +24,13 @@ struct DspParams {
     bool  safetyOn          = true;    // Headphone Safety mode
     float safetyCeilingDb   = -3.0f;   // ceiling while safety is ON
     bool  feedbackRisk      = false;   // set by Kotlin: speaker output + internal mic
+    float eqBand60Db        = 0.0f;    // graphic EQ bands (v2.9), +-12 dB
+    float eqBand250Db       = 0.0f;
+    float eqBand1kDb        = 0.0f;
+    float eqBand4kDb        = 0.0f;
+    float eqBand12kDb       = 0.0f;
+    float revDampingPercent = 50.0f;   // reverb tail HF damping; 50 == the classic fixed value
+    float revWidthPercent   = 100.0f;  // reverb stereo width; 100 == full (original behavior)
     bool  muted             = false;
     bool  bypass            = false;   // A/B compare: raw mic, brickwall only (momentary, never persisted)
 };

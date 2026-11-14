@@ -134,7 +134,9 @@ private:
     std::atomic<float> aBoost{50.0f}, aStatic{60.0f}, aSuppress{40.0f}, aGate{-45.0f},
             aDeEsser{50.0f}, aComp{70.0f}, aRoom{95.0f}, aMix{52.0f},
             aBalance{0.0f}, aEqLow{0.0f}, aEqHigh{0.0f}, aMasterDb{0.0f}, aSafetyCeilingDb{-3.0f},
-            aBtDuck{50.0f}, aWarmth{0.0f}, aClarity{0.0f}, aAir{0.0f};
+            aBtDuck{50.0f}, aWarmth{0.0f}, aClarity{0.0f}, aAir{0.0f},
+            aEq60{0.0f}, aEq250{0.0f}, aEq1k{0.0f}, aEq4k{0.0f}, aEq12k{0.0f},
+            aRevDamp{50.0f}, aRevWidth{100.0f};
     std::atomic<bool> aSuppressOn{true}, aSafetyOn{true}, aFeedbackRisk{false}, aMuted{false},
             aBypass{false},
             aBtDuckOn{false};

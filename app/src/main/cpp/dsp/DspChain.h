@@ -7,6 +7,7 @@
 #include "DeEsser.h"
 #include "Compressor.h"
 #include "ParametricEq.h"
+#include "GraphicEq.h"
 #include "Freeverb.h"
 #include <cmath>
 
@@ -26,6 +27,7 @@ public:
         deEsser_.prepare(sampleRate);
         compressor_.prepare(sampleRate);
         eq_.prepare(sampleRate);
+        geq_.prepare(sampleRate);
         reverb_.prepare(sampleRate);
         peakEnv_.setTimeConstant(sampleRate, 2.0);
         relEnv_.setTimeConstant(sampleRate, 120.0);
@@ -88,6 +90,10 @@ public:
         eq_.setTone(p.eqWarmthDb, p.eqClarityDb, p.eqAirDb);
         l = eq_.process(l, 0);
         r = eq_.process(r, 1);
+        geq_.setGains(p.eqBand60Db, p.eqBand250Db, p.eqBand1kDb, p.eqBand4kDb, p.eqBand12kDb);
+        l = geq_.process(l, 0);
+        r = geq_.process(r, 1);
+        reverb_.setDampingWidth(p.revDampingPercent / 100.0f, p.revWidthPercent / 100.0f);
         // Bluetooth dry-ducking: on wireless, the direct voice arrives a
         // codec-latency late and fights the room sound as a slapback echo.
         // Duck the DRY path only (to 25% at full ducking); the wet Masjid
@@ -133,7 +139,7 @@ public:
 
     void reset() {
         staticRemover_.reset(); gate_.reset(); suppressor_.reset();
-        deEsser_.reset(); compressor_.reset(); eq_.reset(); reverb_.reset();
+        deEsser_.reset(); compressor_.reset(); eq_.reset(); geq_.reset(); reverb_.reset();
         limiterGain_ = 1.0f;
     }
 
@@ -162,6 +168,7 @@ private:
     DeEsser deEsser_;
     Compressor compressor_;
     ParametricEq eq_;
+    GraphicEq geq_;
     Freeverb reverb_;
     OnePole peakEnv_, relEnv_;
     float limiterGain_ = 1.0f;

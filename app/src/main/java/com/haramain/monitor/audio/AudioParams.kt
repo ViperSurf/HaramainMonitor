@@ -27,6 +27,13 @@ data class AudioParams(
     val eqAirDb: Float = 0f,              // -12..+12 tone sculptor: 10 kHz
     val safetyOn: Boolean = true,
     val safetyCeilingDb: Float = -3f,     // -12..0
+    val eqBand60Db: Float = 0f,           // graphic EQ (v2.9), -12..+12
+    val eqBand250Db: Float = 0f,
+    val eqBand1kDb: Float = 0f,
+    val eqBand4kDb: Float = 0f,
+    val eqBand12kDb: Float = 0f,
+    val revDampingPercent: Float = 50f,   // reverb tail damping; 50 == classic fixed value
+    val revWidthPercent: Float = 100f,    // reverb stereo width; 100 == original
     val muted: Boolean = false,
 ) {
     fun toFloatArray(): FloatArray = floatArrayOf(
@@ -34,6 +41,8 @@ data class AudioParams(
         deEsserPercent, compressorPercent, roomSizePercent, wetDryPercent,
         balancePercent, masterGainDb, safetyCeilingDb, eqLowGainDb, eqHighGainDb,
         btDuckPercent, eqWarmthDb, eqClarityDb, eqAirDb,
+        eqBand60Db, eqBand250Db, eqBand1kDb, eqBand4kDb, eqBand12kDb,
+        revDampingPercent, revWidthPercent,
     )
 
     companion object {

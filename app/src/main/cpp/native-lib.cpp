@@ -11,6 +11,8 @@
 //   8 balancePercent    9 masterGainDb     10 safetyCeilingDb
 //   11 eqLowGainDb     12 eqHighGainDb
 //   13 btDuckPercent   14 eqWarmthDb      15 eqClarityDb    16 eqAirDb
+//   17 eqBand60Db      18 eqBand250Db     19 eqBand1kDb     20 eqBand4kDb
+//   21 eqBand12kDb     22 revDampingPercent  23 revWidthPercent
 // Booleans travel as separate args to keep this array purely numeric.
 
 static AudioEngine *fromHandle(jlong handle) {
@@ -54,10 +56,11 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeSetParams(JNIEnv *env, j
                                                                   jboolean btDuckOn) {
     auto *e = fromHandle(handle);
     if (!e || !values || env->GetArrayLength(values) < 13) return;
-    jfloat v[17] = {};
-    const jsize n = std::min<jsize>(env->GetArrayLength(values), 17);
+    jfloat v[24] = {};
+    const jsize n = std::min<jsize>(env->GetArrayLength(values), 24);
     env->GetFloatArrayRegion(values, 0, n, v);
     if (n < 17) v[13] = 50.0f;   // older 13-float callers: duck amount default
+    if (n < 24) { v[22] = 50.0f; v[23] = 100.0f; }   // pre-v2.9 callers: classic damping/width
     DspParams p;
     p.micBoostPercent = v[0]; p.staticRemover = v[1]; p.noiseSuppress = v[2];
     p.gateThresholdDb = v[3]; p.deEsserPercent = v[4]; p.compressorPercent = v[5];
@@ -66,6 +69,9 @@ Java_com_haramain_monitor_audio_NativeAudioEngine_nativeSetParams(JNIEnv *env, j
     p.eqLowGainDb = v[11]; p.eqHighGainDb = v[12];
     p.btDuckPercent = v[13];
     p.eqWarmthDb = v[14]; p.eqClarityDb = v[15]; p.eqAirDb = v[16];
+    p.eqBand60Db = v[17]; p.eqBand250Db = v[18]; p.eqBand1kDb = v[19];
+    p.eqBand4kDb = v[20]; p.eqBand12kDb = v[21];
+    p.revDampingPercent = v[22]; p.revWidthPercent = v[23];
     p.btDuckOn = btDuckOn;
     p.noiseSuppressOn = suppressOn; p.safetyOn = safetyOn;
     p.feedbackRisk = feedbackRisk; p.muted = muted;

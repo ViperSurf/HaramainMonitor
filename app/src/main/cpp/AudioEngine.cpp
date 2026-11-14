@@ -213,6 +213,9 @@ void AudioEngine::setParams(const DspParams &p) {
     aMuted.store(p.muted);
     aBtDuck.store(p.btDuckPercent); aBtDuckOn.store(p.btDuckOn);
     aWarmth.store(p.eqWarmthDb); aClarity.store(p.eqClarityDb); aAir.store(p.eqAirDb);
+    aEq60.store(p.eqBand60Db); aEq250.store(p.eqBand250Db); aEq1k.store(p.eqBand1kDb);
+    aEq4k.store(p.eqBand4kDb); aEq12k.store(p.eqBand12kDb);
+    aRevDamp.store(p.revDampingPercent); aRevWidth.store(p.revWidthPercent);
 }
 
 DspParams AudioEngine::snapshotParams() const {
@@ -229,6 +232,9 @@ DspParams AudioEngine::snapshotParams() const {
     p.bypass = aBypass.load();
     p.btDuckPercent = aBtDuck.load(); p.btDuckOn = aBtDuckOn.load();
     p.eqWarmthDb = aWarmth.load(); p.eqClarityDb = aClarity.load(); p.eqAirDb = aAir.load();
+    p.eqBand60Db = aEq60.load(); p.eqBand250Db = aEq250.load(); p.eqBand1kDb = aEq1k.load();
+    p.eqBand4kDb = aEq4k.load(); p.eqBand12kDb = aEq12k.load();
+    p.revDampingPercent = aRevDamp.load(); p.revWidthPercent = aRevWidth.load();
     return p;
 }
 

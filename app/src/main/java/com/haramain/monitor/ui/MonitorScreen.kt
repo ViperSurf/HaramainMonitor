@@ -132,6 +132,8 @@ fun MonitorScreen(
     val autoStopMinutes by viewModel.autoStopMinutes.collectAsState()
     val autoRecord by viewModel.autoRecord.collectAsState()
     val voiceActivated by viewModel.voiceActivated.collectAsState()
+    val autoStartMic by viewModel.autoStartMic.collectAsState()
+    val practiceSummary by viewModel.practiceSummary.collectAsState()
     val perMicMemory by viewModel.perMicMemory.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val recordingStartedAt by viewModel.recordingStartedAtMs.collectAsState()
@@ -671,6 +673,22 @@ fun MonitorScreen(
                 enabled = controlsEnabled,
             )
             PrecisionControl(
+                label = "Reverb Damping",
+                help = "How quickly the reverb tail loses its brightness. Low = bright, splashy reflections; high = a softer, darker, more natural tail.",
+                value = params.revDampingPercent.toDouble(),
+                range = 0f..100f, step = 1.0, decimals = 0, unit = "%",
+                centerValue = 50.0,
+                onChange = { update(params.copy(revDampingPercent = it.toFloat())) },
+            )
+            PrecisionControl(
+                label = "Reverb Width",
+                help = "Stereo width of the reverb field only (your voice stays centered). Lower narrows the space toward mono; 100 is the full original width.",
+                value = params.revWidthPercent.toDouble(),
+                range = 0f..100f, step = 1.0, decimals = 0, unit = "%",
+                centerValue = 100.0,
+                onChange = { update(params.copy(revWidthPercent = it.toFloat())) },
+            )
+            PrecisionControl(
                 label = "Stereo Balance",
                 help = "Places your voice between the left and right ears.",
                 value = params.balancePercent, valueRange = -100f..100f, step = 1f,
@@ -740,6 +758,49 @@ fun MonitorScreen(
                 onValueChange = { v -> viewModel.update { it.copy(eqAirDb = v) } },
                 enabled = controlsEnabled,
                 showCenterSnap = true,
+            )
+        }
+
+        // ---------- Graphic EQ ----------
+        SectionCard(
+            id = "geq", title = "Graphic EQ", icon = Icons.Filled.GraphicEq,
+            help = "Five fixed bands that shape your voice BEFORE it enters the space. Cut 250 Hz to remove boxiness from a small room; lift 4 kHz for clarity; 60 Hz is mostly rumble — cutting it cleans recordings.",
+            openSections = openSections, onToggleSection = { viewModel.toggleSection(it) },
+        ) {
+            PrecisionControl(
+                label = "60 Hz — Rumble",
+                value = params.eqBand60Db.toDouble(),
+                range = -12f..12f, step = 0.5, decimals = 1, unit = "dB",
+                centerValue = 0.0,
+                onChange = { update(params.copy(eqBand60Db = it.toFloat())) },
+            )
+            PrecisionControl(
+                label = "250 Hz — Warmth / Boxiness",
+                value = params.eqBand250Db.toDouble(),
+                range = -12f..12f, step = 0.5, decimals = 1, unit = "dB",
+                centerValue = 0.0,
+                onChange = { update(params.copy(eqBand250Db = it.toFloat())) },
+            )
+            PrecisionControl(
+                label = "1 kHz — Body",
+                value = params.eqBand1kDb.toDouble(),
+                range = -12f..12f, step = 0.5, decimals = 1, unit = "dB",
+                centerValue = 0.0,
+                onChange = { update(params.copy(eqBand1kDb = it.toFloat())) },
+            )
+            PrecisionControl(
+                label = "4 kHz — Clarity",
+                value = params.eqBand4kDb.toDouble(),
+                range = -12f..12f, step = 0.5, decimals = 1, unit = "dB",
+                centerValue = 0.0,
+                onChange = { update(params.copy(eqBand4kDb = it.toFloat())) },
+            )
+            PrecisionControl(
+                label = "12 kHz — Air",
+                value = params.eqBand12kDb.toDouble(),
+                range = -12f..12f, step = 0.5, decimals = 1, unit = "dB",
+                centerValue = 0.0,
+                onChange = { update(params.copy(eqBand12kDb = it.toFloat())) },
             )
         }
 
@@ -815,6 +876,19 @@ fun MonitorScreen(
                 checked = perMicMemory,
                 onCheckedChange = viewModel::setPerMicMemory,
                 help = "Each microphone keeps its own sound: boost, gate, preset, everything. Switch mics and the app saves the sound you are leaving and restores the one you saved for the mic you picked. Best when your USB mic and phone mic need very different settings.",
+            )
+            ToggleRow(
+                label = "Auto-start when my mic connects",
+                help = "Starts monitoring automatically when your selected microphone appears (for example when you plug in the USB mic). Works while the app is open or still in memory.",
+                checked = autoStartMic,
+                onChange = { viewModel.setAutoStartMic(it) },
+            )
+            Spacer(Modifier.height(8.dp))
+            Text("Practice log", style = MaterialTheme.typography.titleSmall)
+            Text(
+                practiceSummary,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
             Text("Recording folder", style = MaterialTheme.typography.titleSmall)

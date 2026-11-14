@@ -64,6 +64,7 @@ class MicMonitorService : Service() {
     @Volatile private var varCached = false
     @Volatile private var gateCachedDb = -45f
     @Volatile private var lastGateVoiceMs = 0L
+    @Volatile private var sessionStartMs = 0L
     @Volatile private var lastVoiceMs = 0L
     private val settings by lazy { SettingsStore(this) }
 
@@ -123,6 +124,7 @@ class MicMonitorService : Service() {
         router.attachPlatformEffects()
         applyParams()
         MonitorState.isRunning.value = true
+        sessionStartMs = System.currentTimeMillis()
         MonitorTileService.requestUpdate(this)
         recoveryAttempts = 0
         scope.launch { settings.setWasRunning(true) }   // cleared only by an explicit stop
@@ -301,6 +303,12 @@ class MicMonitorService : Service() {
     }
 
     private fun stopMonitoring() {
+        val startedAt = sessionStartMs
+        sessionStartMs = 0L
+        if (startedAt > 0) {
+            val secs = (System.currentTimeMillis() - startedAt) / 1000
+            if (secs >= 5) scope.launch { settings.addPracticeSession(secs) }
+        }
         if (NativeAudioEngine.isRecording()) stopRecordingInternal()
         scope.launch { settings.setWasRunning(false) }   // explicit stop: no auto-resume
         telemetryJob?.cancel()

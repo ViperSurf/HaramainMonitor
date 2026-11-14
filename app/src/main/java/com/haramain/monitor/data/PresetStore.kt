@@ -100,6 +100,13 @@ class PresetStore(private val context: Context) {
             eqAirDb = this[floatPreferencesKey(prefix + "air")] ?: 0f,
             safetyOn = this[booleanPreferencesKey(prefix + "safetyOn")] ?: true,
             safetyCeilingDb = this[floatPreferencesKey(prefix + "ceiling")] ?: -3f,
+            eqBand60Db = this[floatPreferencesKey(prefix + "geq60")] ?: 0f,
+            eqBand250Db = this[floatPreferencesKey(prefix + "geq250")] ?: 0f,
+            eqBand1kDb = this[floatPreferencesKey(prefix + "geq1k")] ?: 0f,
+            eqBand4kDb = this[floatPreferencesKey(prefix + "geq4k")] ?: 0f,
+            eqBand12kDb = this[floatPreferencesKey(prefix + "geq12k")] ?: 0f,
+            revDampingPercent = this[floatPreferencesKey(prefix + "revdamp")] ?: 50f,
+            revWidthPercent = this[floatPreferencesKey(prefix + "revwidth")] ?: 100f,
             muted = false,
         )
     }
@@ -125,6 +132,13 @@ class PresetStore(private val context: Context) {
         this[floatPreferencesKey(prefix + "air")] = p.eqAirDb
         this[booleanPreferencesKey(prefix + "safetyOn")] = p.safetyOn
         this[floatPreferencesKey(prefix + "ceiling")] = p.safetyCeilingDb
+        this[floatPreferencesKey(prefix + "geq60")] = p.eqBand60Db
+        this[floatPreferencesKey(prefix + "geq250")] = p.eqBand250Db
+        this[floatPreferencesKey(prefix + "geq1k")] = p.eqBand1kDb
+        this[floatPreferencesKey(prefix + "geq4k")] = p.eqBand4kDb
+        this[floatPreferencesKey(prefix + "geq12k")] = p.eqBand12kDb
+        this[floatPreferencesKey(prefix + "revdamp")] = p.revDampingPercent
+        this[floatPreferencesKey(prefix + "revwidth")] = p.revWidthPercent
     }
 
     private companion object {

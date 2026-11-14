@@ -412,3 +412,23 @@ Two real offenders, both fired by slider drags, both fixed:
 - Start and stop ease through a ~40 ms master fade in the engine, so
   monitoring no longer begins or ends with a click/pop. The fade is
   applied before the recording tap, so recordings fade too.
+
+## v2.9 — Graphic EQ, reverb damping/width, auto-start, practice log
+
+- 5-band graphic EQ (60 / 250 / 1k / 4k / 12k, +-12 dB, Q 1.41) in its
+  own section; shapes the voice after the fixed voicing EQ and before
+  the space. Host-verified: +12 dB at 1 kHz measures 3.98x, neighbor
+  leak 1.009x.
+- Reverb Damping and Width controls in Haramain Space. Damping drives
+  the Freeverb comb feedback lowpass (50 reproduces the classic fixed
+  value exactly, so existing presets sound unchanged); width cross-
+  mixes the wet field (100 = original, 0 = mono wet).
+- Auto-start when my mic connects (App Settings, default off): when
+  the selected input transitions absent -> present while the app
+  process is alive, monitoring starts.
+- Practice log (App Settings): total monitored time, session count,
+  and today's time, recorded once per session at stop (>= 5 s).
+- Icon completion: the launcher mark (brass crescent + mic on emerald)
+  gains a monochrome layer for Android 13 themed icons and a round
+  variant. (The mark itself shipped with the original build.)
+- Param block grows to 24 floats; no new JNI functions.

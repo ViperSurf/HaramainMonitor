@@ -127,6 +127,13 @@ object SettingsTransfer {
         j.put("eqAirDb", eqAirDb.toDouble())
         j.put("safetyOn", safetyOn)
         j.put("safetyCeilingDb", safetyCeilingDb.toDouble())
+        j.put("eqBand60Db", eqBand60Db.toDouble())
+        j.put("eqBand250Db", eqBand250Db.toDouble())
+        j.put("eqBand1kDb", eqBand1kDb.toDouble())
+        j.put("eqBand4kDb", eqBand4kDb.toDouble())
+        j.put("eqBand12kDb", eqBand12kDb.toDouble())
+        j.put("revDampingPercent", revDampingPercent.toDouble())
+        j.put("revWidthPercent", revWidthPercent.toDouble())
         return j
     }
 
@@ -157,6 +164,13 @@ object SettingsTransfer {
             eqAirDb = f("eqAirDb", d.eqAirDb),
             safetyOn = b("safetyOn", d.safetyOn),
             safetyCeilingDb = f("safetyCeilingDb", d.safetyCeilingDb),
+            eqBand60Db = f("eqBand60Db", d.eqBand60Db),
+            eqBand250Db = f("eqBand250Db", d.eqBand250Db),
+            eqBand1kDb = f("eqBand1kDb", d.eqBand1kDb),
+            eqBand4kDb = f("eqBand4kDb", d.eqBand4kDb),
+            eqBand12kDb = f("eqBand12kDb", d.eqBand12kDb),
+            revDampingPercent = f("revDampingPercent", d.revDampingPercent),
+            revWidthPercent = f("revWidthPercent", d.revWidthPercent),
             muted = false,
         )
     }

@@ -20,6 +20,7 @@ import com.haramain.monitor.service.MonitorState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.FlowPreview
@@ -213,6 +214,21 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         if (on) settings.setVoiceActivated(false)
     }
 
+    val autoStartMic: StateFlow<Boolean> = settings.autoStartMic
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setAutoStartMic(on: Boolean) = viewModelScope.launch { settings.setAutoStartMic(on) }
+
+    val practiceSummary: StateFlow<String> = settings.practiceStats
+        .map { (totalSec, sessions, todaySec) ->
+            fun fmt(sec: Long): String {
+                val m = sec / 60
+                return if (m >= 60) "${m / 60} h ${m % 60} min" else "$m min"
+            }
+            "Total ${fmt(totalSec)} · $sessions sessions · Today ${fmt(todaySec)}"
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
     fun setVoiceActivated(on: Boolean) = viewModelScope.launch {
         settings.setVoiceActivated(on)
         if (on) settings.setAutoRecord(false)
@@ -282,6 +298,25 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         @OptIn(FlowPreview::class)
         viewModelScope.launch {
             MonitorState.params.debounce(600).collect { p -> store.saveLast(p) }
+        }
+        // Auto-start when the SELECTED mic connects (v2.9): diff the
+        // input set; an absent -> present transition of the selected
+        // device starts monitoring (only while this process is alive,
+        // which covers the app-open / recently-used cases).
+        viewModelScope.launch {
+            var prevIds: Set<Int>? = null
+            router.inputs.collect { devices ->
+                val ids = devices.map { it.id }.toSet()
+                val prev = prevIds
+                prevIds = ids
+                if (prev != null && !MonitorState.isRunning.value && settings.autoStartMic.first()) {
+                    val sel = router.selectedInputId.value
+                    if (sel in ids && sel !in prev) {
+                        val ctx = getApplication<Application>()
+                        ContextCompat.startForegroundService(ctx, MicMonitorService.startIntent(ctx))
+                    }
+                }
+            }
         }
         // Feedback risk follows route changes.
         viewModelScope.launch {

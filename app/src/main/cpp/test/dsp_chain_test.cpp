@@ -245,6 +245,49 @@ int main() {
         check("A/B bypass still brickwalls at -0.5 dB", l2 <= 0.944f && l2 > 0.9f, l2);
     }
 
+    {
+        // v2.9: graphic EQ band actually boosts its band, not its neighbors.
+        auto bandRms = [&](double freq, float g1k) {
+            GraphicEq g; g.prepare(SR); g.setGains(0, 0, g1k, 0, 0);
+            double acc = 0; int n = 0;
+            for (int i = 0; i < 48000; ++i) {
+                float x = 0.3f * std::sin(2 * M_PI * freq * i / SR);
+                float y = g.process(x, 0);
+                if (i > 24000) { acc += double(y) * y; ++n; }
+            }
+            return std::sqrt(acc / n);
+        };
+        double boost1k = bandRms(1000, 12) / bandRms(1000, 0);
+        double leak100 = bandRms(100, 12) / bandRms(100, 0);
+        check("graphic EQ +12 dB at 1 kHz boosts ~4x", boost1k > 3.2 && boost1k < 4.8, boost1k);
+        check("graphic EQ 1 kHz band leaves 100 Hz alone", leak100 > 0.8 && leak100 < 1.25, leak100);
+    }
+    {
+        // v2.9: reverb damping darkens/quiets the tail; width 0 = mono wet.
+        auto tailRms = [&](float damp01) {
+            Freeverb fv; fv.prepare(SR); fv.setDampingWidth(damp01, 1.0f);
+            unsigned seed = 777;
+            auto nz = [&]() { seed = seed * 1103515245 + 12345; return ((seed >> 16) & 0x7fff) / 16384.0f - 1.0f; };
+            double acc = 0; int n = 0;
+            for (int i = 0; i < 48000 * 3; ++i) {
+                float x = i < 12000 ? nz() * 0.4f : 0.0f;
+                float l, r; fv.process(x, x, 0.8f, 1.0f, l, r);
+                if (i >= 48000 * 5 / 2) { acc += double(l) * l; ++n; }
+            }
+            return std::sqrt(acc / n);
+        };
+        double bright = tailRms(0.0f), dark = tailRms(1.0f);
+        check("reverb damping shrinks the late tail", dark < bright * 0.85, dark / bright);
+        Freeverb fv; fv.prepare(SR); fv.setDampingWidth(0.5f, 0.0f);
+        bool mono = true;
+        for (int i = 0; i < 4800; ++i) {
+            float x = (i == 0) ? 0.8f : 0.0f;
+            float l, r; fv.process(x, x, 0.8f, 0.8f, l, r);
+            if (l != r) mono = false;
+        }
+        check("reverb width 0 makes the wet field mono", mono, 0);
+    }
+
     std::printf(failures == 0 ? "\nALL DSP TESTS PASSED\n" : "\n%d FAILURES\n", failures);
     return failures == 0 ? 0 : 1;
 }

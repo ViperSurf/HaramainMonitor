@@ -55,6 +55,19 @@ public:
         preIdx_ = 0;
     }
 
+    // Damping (0..1): HF absorption in the comb feedback — higher is a
+    // softer, darker tail. 0.5 maps to the classic fixed damp1 of 0.2.
+    // Width (0..1): stereo spread of the WET field; 1 = original behavior.
+    // Both cached: coefficient writes happen only on change.
+    inline void setDampingWidth(float damp01, float width01) {
+        width_ = width01;
+        if (std::fabs(damp01 - lastDamp_) < 0.001f) return;
+        lastDamp_ = damp01;
+        const float d1 = 0.04f + damp01 * 0.32f;   // 0.04..0.36; 0.5 -> 0.20 (original)
+        for (int ch = 0; ch < 2; ++ch)
+            for (auto &c : combs_[ch]) { c.damp1 = d1; c.damp2 = 1.0f - d1; }
+    }
+
     // inL/inR dry; roomSize01 & wetDry01 from UI; writes wet-mixed outL/outR.
     inline void process(float inL, float inR, float roomSize01, float wet01,
                         float &outL, float &outR, float dryScale = 1.0f) {
@@ -77,10 +90,13 @@ public:
             wetL = allPass_[0][i].process(wetL);
             wetR = allPass_[1][i].process(wetR);
         }
+        // Stereo width on the wet field (1 = untouched, 0 = mono wet).
+        const float wl = wetL * (0.5f + 0.5f * width_) + wetR * (0.5f - 0.5f * width_);
+        const float wr = wetR * (0.5f + 0.5f * width_) + wetL * (0.5f - 0.5f * width_);
         const float wetGain = wet01 * 0.9f;
         const float dryGain = (1.0f - wet01 * 0.35f) * dryScale;   // gentle dry duck as mix rises; dryScale applies BT ducking
-        outL = inL * dryGain + wetL * wetGain;
-        outR = inR * dryGain + wetR * wetGain;
+        outL = inL * dryGain + wl * wetGain;
+        outR = inR * dryGain + wr * wetGain;
     }
 
     void reset() {
@@ -97,4 +113,6 @@ private:
     AllPass allPass_[2][4];
     std::vector<float> preDelay_;
     size_t preIdx_ = 0;
+    float width_ = 1.0f;
+    float lastDamp_ = -1.0f;
 };
