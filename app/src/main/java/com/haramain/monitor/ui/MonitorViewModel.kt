@@ -12,6 +12,7 @@ import com.haramain.monitor.audio.AudioRouter
 import com.haramain.monitor.audio.isBluetooth
 import com.haramain.monitor.audio.PresetKind
 import com.haramain.monitor.audio.RouteDevice
+import com.haramain.monitor.audio.detectPreset
 import com.haramain.monitor.audio.matchesPreset
 import com.haramain.monitor.data.PresetStore
 import com.haramain.monitor.data.SettingsStore
@@ -445,15 +446,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toggleMute() = update { it.copy(muted = !it.muted) }
 
-    private fun detectPreset(p: AudioParams): PresetKind = when {
-        p.matchesPreset(PresetKind.HARAMAIN) -> PresetKind.HARAMAIN
-        p.matchesPreset(PresetKind.NABAWI) -> PresetKind.NABAWI
-        p.matchesPreset(PresetKind.STUDIO) -> PresetKind.STUDIO
-        p.matchesPreset(PresetKind.SIMPLE) -> PresetKind.SIMPLE
-        p.matchesPreset(PresetKind.STONE_DOME) -> PresetKind.STONE_DOME
-        p.matchesPreset(PresetKind.LOCAL_HALL) -> PresetKind.LOCAL_HALL
-        else -> PresetKind.CUSTOM
-    }
+    private fun detectPreset(p: AudioParams): PresetKind = p.detectPreset()
 
     override fun onCleared() {
         router.stopListening()

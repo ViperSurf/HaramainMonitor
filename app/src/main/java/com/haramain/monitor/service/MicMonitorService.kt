@@ -285,9 +285,13 @@ class MicMonitorService : Service() {
                         captureBaseline(router, actIn, actOut, selIn, selOut, lostCount)
                     }
                     var rebaselined = false
+                    val manualPick = lostCount == baseLostCount &&
+                        (selIn != baseSelIn || selOut != baseSelOut)
                     if (baselineSet &&
-                        ((selIn != baseSelIn && selIn != -1) || (selOut != baseSelOut && selOut != -1))
+                        (manualPick || (selIn != baseSelIn && selIn != -1) || (selOut != baseSelOut && selOut != -1))
                     ) {
+                        if (selIn == -1) hadInSelection = false
+                        if (selOut == -1) hadOutSelection = false
                         captureBaseline(router, actIn, actOut, selIn, selOut, lostCount)
                         rebaselined = true
                     }

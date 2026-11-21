@@ -14,8 +14,8 @@ android {
         applicationId = "com.haramain.monitor"
         minSdk = 26          // AAudio low-latency path is used on API 27+; Oboe falls back to OpenSL ES below that.
         targetSdk = 35
-        versionCode = 24
-        versionName = "3.6"
+        versionCode = 25
+        versionName = "3.7"
 
         // Build native code only for real device ABIs (+ x86_64 for emulators).
         ndk {
@@ -29,17 +29,26 @@ android {
         }
     }
 
-    // Stable dev signing: every build (local or CI) uses the committed
-    // dev-only keystore so a new APK installs OVER the previous one on the
-    // test phone — no signature-mismatch uninstall dance. NOT for release.
+    // Release signing reads optional environment variables (for Play Store /
+    // private CI signing); otherwise falls back to the committed dev-only
+    // keystore so local and dev-latest builds install over each other.
     val devKeystore = rootProject.file("keystore/debug.keystore")
-    if (devKeystore.exists()) {
-        signingConfigs {
+    val relStoreFile = System.getenv("RELEASE_STORE_FILE")?.takeIf { it.isNotBlank() }?.let { file(it) }
+    signingConfigs {
+        if (devKeystore.exists()) {
             create("devDebug") {
                 storeFile = devKeystore
                 storePassword = "android"
                 keyAlias = "androiddebugkey"
                 keyPassword = "android"
+            }
+        }
+        if (relStoreFile != null && relStoreFile.exists()) {
+            create("releaseEnv") {
+                storeFile = relStoreFile
+                storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
             }
         }
     }
@@ -51,13 +60,15 @@ android {
             // (no JDWP, full ART optimization). Minify stays OFF for now:
             // the JNI surface makes R8 keep-rules a separate careful step.
             isMinifyEnabled = false
-            if (devKeystore.exists()) {
-                signingConfig = signingConfigs.getByName("devDebug")
+            signingConfig = when {
+                signingConfigs.findByName("releaseEnv") != null -> signingConfigs.getByName("releaseEnv")
+                signingConfigs.findByName("devDebug") != null -> signingConfigs.getByName("devDebug")
+                else -> null
             }
         }
         debug {
             isMinifyEnabled = false
-            if (devKeystore.exists()) {
+            if (signingConfigs.findByName("devDebug") != null) {
                 signingConfig = signingConfigs.getByName("devDebug")
             }
         }
@@ -111,4 +122,7 @@ dependencies {
 
     // DataStore — custom preset + last-used parameter persistence.
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // JVM unit tests
+    testImplementation("junit:junit:4.13.2")
 }

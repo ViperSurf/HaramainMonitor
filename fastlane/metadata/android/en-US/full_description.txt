@@ -1,0 +1,9 @@
+Haramain Monitor is an ultra-low-latency live microphone monitor and vocal reverb rack for Android. Plug in headphones or a USB mic to hear your voice in near-real time with studio dynamics and hall acoustics — completely offline, with no ads, no accounts, and no network code.
+
+Key Features:
+• Ultra-low-latency C++17 DSP chain over Oboe/AAudio (device-native sample rate, screen-off foreground service)
+• 9-stage vocal chain: Mic Boost, Static Remover, Noise Gate, Minimum-Statistics Noise Suppression, De-Esser, Compressor, 3-band Tone Sculptor, 5-band Graphic EQ, Freeverb space (with Damping, Width, and Bluetooth dry-ducking), Anti-Howl Feedback Guard, and Safety Limiter
+• 7 built-in presets (Masjid al-Haram, Masjid an-Nabawi, Historic Stone Dome, Local Masjid Hall, Lead (Imam), Studio Dry, Simple Studio) plus Auto Setup calibration and Custom slot
+• Explicit hardware input/output routing, Monitor Ears (Stereo / Left Only / Right Only), per-microphone memory, mic naming/grouping, and device-keyed auto-start / auto-stop
+• Recording & Library: post-DSP stereo WAV or raw Dry Vocal mode, voice-activated recording, auto-trim edge silence, M4A export, A-B phrase looping, speed control (0.5×/0.75×/1×), and automatic phrase-pause markers (Waqf marks)
+• Practice log with 90-day history, daily goal & streak, Hz-only Voice Steadiness monitor, Quick Settings tile, earbud/lock-screen mute, PIN lock, and JSON settings export/import

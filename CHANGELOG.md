@@ -4,6 +4,39 @@ All notable changes to Haramain Monitor. Newest first. Through
 v3.6 this history lived at the bottom of the README; it moved
 here on 2026-11-16.
 
+## v3.7 — Reliability fixes, automated testing & documentation
+
+- **Bug fix (Feedback Guard):** `AudioEngine` now feeds `mPitchRing`
+  whenever `aHowlGuardOn` is enabled, not only when Voice Steadiness
+  (`mPitchEnabled`) is enabled — previously the Feedback Guard FFT
+  thread starved with 0 frames whenever Voice Steadiness was off.
+- **Bug fix (Lead (Imam) preset):** added `PresetKind.LEAD` to
+  `MonitorViewModel.detectPreset()` so selecting Lead (Imam) stays
+  highlighted instead of flipping to Custom.
+- **Bug fix (Bluetooth buffer floor):** `AudioEngine::setBufferMode()`
+  now preserves the 2-burst Bluetooth floor when `mUsageGame` is active.
+- **Bug fix (Disconnect automation):** manually switching the input or
+  output picker back to System Default (`-1`) re-baselines instead of
+  triggering a false 3-second disconnect stop.
+- **UI fix (Library & Presets):** wrapped `RecordingsActivity` in a
+  themed `Surface` so text/icons have proper contrast in all themes;
+  `Custom` preset chip no longer highlights alongside `Auto` when the
+  saved `Auto` preset is active.
+- **DSP & Portability:** reset stale notch frequency tracking in
+  `DspChain` when a notch expires; added `<algorithm>` include in
+  `Biquad.h` for standalone `clang++` / `libc++` builds.
+- **Testing:** added JVM unit test suites (`AudioParamsTest`,
+  `AutoCalibratorTest`, `WavTrimmerTest`, `WaqfAnalyzerTest`), expanded
+  `dsp_chain_test.cpp` (feedbackRisk cap, notch re-arming), wired both
+  plus JNI symbol & naming checks into CI, and added the integrated
+  testing manual (`docs/TESTING.md`).
+- **Docs & Store Readiness:** updated `README.md` with all 9 presets,
+  exact parameters, plain-English vocal/reverb overview, screenshots,
+  walkthrough demo, and the current v3.7 DSP chain; added Apache 2.0
+  `LICENSE`, `PRIVACY.md`, `fastlane/metadata/android/en-US/` store
+  listings/screenshots, `RETROSPECTIVE.md`, and optional env-var release
+  signing in `app/build.gradle.kts`.
+
 ## v3.6 — Voice Steadiness; playback stays loaded; QoL pass
 
 - The pitch indicator is now Voice Steadiness: same tracker, honest

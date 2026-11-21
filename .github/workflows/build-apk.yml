@@ -45,10 +45,30 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      - name: Build release APK (non-debuggable, dev-signed)
+      - name: Run host DSP tests
+        run: |
+          g++ -std=c++17 -O2 -I app/src/main/cpp app/src/main/cpp/test/dsp_chain_test.cpp -o /tmp/dsp_test
+          /tmp/dsp_test
+
+      - name: Check naming rule
+        run: |
+          ! grep -riE "[c]hurch|[c]athedral" app/ README.md CHANGELOG.md docs/
+
+      - name: Run JVM unit tests
         run: |
           chmod +x gradlew
+          ./gradlew testReleaseUnitTest --stacktrace
+
+      - name: Build release APK (non-debuggable, dev-signed)
+        run: |
           ./gradlew assembleRelease --stacktrace
+
+      - name: Verify 29 unmangled JNI symbols in APK
+        run: |
+          unzip -p app/build/outputs/apk/release/app-release.apk lib/arm64-v8a/libharamain_audio.so > /tmp/libharamain_audio.so
+          COUNT=$(nm -D /tmp/libharamain_audio.so | grep -c "Java_com_haramain_monitor_audio_NativeAudioEngine_native")
+          echo "Found $COUNT plain JNI symbols"
+          test "$COUNT" -eq 29
 
       - name: Upload APK as run artifact
         uses: actions/upload-artifact@v4

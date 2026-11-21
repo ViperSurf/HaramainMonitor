@@ -120,7 +120,10 @@ public:
         // --- 8b. Anti-howl notches (frequencies set by the guard thread) ---
         for (int s = 0; s < 4; ++s) {
             const float f = p.notchFreq[s];
-            if (f < 1.0f) continue;
+            if (f < 1.0f) {
+                notchFreq_[s] = 0.0f;
+                continue;
+            }
             if (std::fabs(f - notchFreq_[s]) > 1.0f) {
                 notchFreq_[s] = f;
                 for (int ch = 0; ch < 2; ++ch)

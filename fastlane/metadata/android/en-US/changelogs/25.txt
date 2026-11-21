@@ -1,0 +1,7 @@
+v3.7:
+- Fixed Feedback Guard audio feed when Voice Steadiness is off
+- Fixed Lead (Imam) preset chip highlighting
+- Preserved Bluetooth 2-burst buffer floor on buffer mode changes
+- Fixed false disconnect stop when manually switching back to System Default
+- Fixed dark-mode Surface contrast in Recordings Library
+- Added automated C++ DSP + Kotlin JVM regression tests and store metadata

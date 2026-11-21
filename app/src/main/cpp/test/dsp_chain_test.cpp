@@ -337,6 +337,43 @@ int main() {
         check("notch cuts its own frequency hard", cut < 0.35, cut);
         check("notch leaves 300 Hz alone", pass > 0.8 && pass < 1.25, pass);
     }
+    {
+        // Regression: feedbackRisk caps output at -12 dBFS (0.2512).
+        DspChain c; c.prepare(SR);
+        DspParams p; p.safetyOn = true; p.feedbackRisk = true; p.micBoostPercent = 200.0f;
+        double maxOut = 0;
+        for (int i = 0; i < 48000; ++i) {
+            float l = 0.8f * std::sin(2 * M_PI * 220.0 * i / SR), r = l;
+            c.processFrame(l, r, p);
+            if (i > 4800) maxOut = std::max(maxOut, (double)std::max(std::fabs(l), std::fabs(r)));
+        }
+        check("feedbackRisk caps output at -12 dBFS (<=0.255)", maxOut <= 0.255, maxOut);
+    }
+    {
+        // Regression: expired notch (0) followed by re-detection at same Hz still cuts.
+        DspChain c; c.prepare(SR);
+        DspParams p; p.micBoostPercent = 0; p.staticRemover = 0; p.noiseSuppressOn = false;
+        p.gateThresholdDb = -80; p.roomSizePercent = 0; p.wetDryPercent = 0;
+        p.notchFreq[0] = 1000.0f;
+        for (int i = 0; i < 12000; ++i) {
+            float l = 0.3f * std::sin(2 * M_PI * 1000.0 * i / SR), r = l;
+            c.processFrame(l, r, p);
+        }
+        p.notchFreq[0] = 0.0f;
+        for (int i = 0; i < 4800; ++i) {
+            float l = 0.3f * std::sin(2 * M_PI * 1000.0 * i / SR), r = l;
+            c.processFrame(l, r, p);
+        }
+        p.notchFreq[0] = 1000.0f;
+        double acc = 0; int n = 0;
+        for (int i = 0; i < 24000; ++i) {
+            float l = 0.3f * std::sin(2 * M_PI * 1000.0 * i / SR), r = l;
+            c.processFrame(l, r, p);
+            if (i > 12000) { acc += double(l) * l; ++n; }
+        }
+        double reCut = std::sqrt(acc / n) / (0.3 / std::sqrt(2.0));
+        check("notch re-engages after expiry", reCut < 0.35, reCut);
+    }
 
     std::printf(failures == 0 ? "\nALL DSP TESTS PASSED\n" : "\n%d FAILURES\n", failures);
     return failures == 0 ? 0 : 1;

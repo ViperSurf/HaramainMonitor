@@ -132,3 +132,7 @@ fun AudioParams.matchesPreset(kind: PresetKind): Boolean = when (kind) {
     PresetKind.SIMPLE -> copy(muted = false) == AudioParams.SIMPLE_STUDIO.copy(muted = false)
     PresetKind.CUSTOM -> false
 }
+
+/** Resolves which built-in preset [this] matches, or [PresetKind.CUSTOM]. */
+fun AudioParams.detectPreset(): PresetKind =
+    PresetKind.entries.firstOrNull { it != PresetKind.CUSTOM && matchesPreset(it) } ?: PresetKind.CUSTOM

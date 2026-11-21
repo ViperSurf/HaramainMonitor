@@ -1,15 +1,47 @@
 # Haramain Monitor
 
-Ultra-low-latency live microphone monitoring for Android, built for crisp vocal
-recitation. Native Oboe (AAudio) duplex engine, a 9-stage C++ DSP chain,
-explicit hardware routing, and a foreground service so monitoring survives
-the screen turning off.
+Ultra-low-latency live microphone monitoring & vocal reverb for Android. Hear
+your own voice in headphones in near-real time through a 9-stage C++ DSP rack
+(noise gate, noise suppression, de-esser, compressor, 5-band graphic EQ,
+tone sculptor, Freeverb hall/studio space, anti-howl notch filter, and
+safety limiter) — all offline, with zero ads, zero accounts, and screen-off
+foreground service support.
 
-**Defaults on first launch — Haramain (Original), the user's specified
-settings:** Room 95% · Mix 52% · Compressor 70% · De-Esser 50% · Gate −45 dB ·
-Safety ON (−3 dBFS ceiling).
+**Who is this for?**
+- **Anyone wanting live mic monitoring + reverb on Android:** Plug in
+  headphones (or a USB mic), pick **Studio Dry** / **Simple Studio** for
+  clean podcast/speech monitoring, or **Masjid al-Haram** / **Historic Stone
+  Dome** for lush hall reverb.
+- **Qur'an reciters & imams:** Acoustic presets modeled after the two holy
+  mosques (*Haramain*), automatic phrase-pause markers (**Waqf marks**) in
+  the Library, and a Hz-only **Voice Steadiness** breath mirror for held
+  vowels (*madd*).
 
-## Feature reference (v3.6) — the full list
+**Current version:** v3.7 (`versionCode 25`) · **License:** [Apache 2.0](LICENSE) · **Privacy:** [100% offline, on-device only](PRIVACY.md)
+
+**Defaults on first launch — Masjid al-Haram (the user's specified
+settings):** Room 95% · Mix 52% · Compressor 70% · De-Esser 50% · Gate −45 dB ·
+Safety ON (−3 dBFS ceiling) · Feedback Guard ON.
+
+## Screenshots & Walkthrough
+
+<video src="docs/assets/demo.webm" controls muted playsinline width="360"></video>
+
+| Live Dashboard & Routing | Presets & Vocal Chain | Recordings Library |
+|---|---|---|
+| ![Live Dashboard](docs/assets/monitor-dashboard.png) | ![Presets & Vocal Chain](docs/assets/presets-vocal-chain.png) | ![Recordings Library](docs/assets/library-waqf.png) |
+
+| Vocal Chain Controls | Graphic EQ | Safety & Limiter |
+|---|---|---|
+| ![Vocal Chain](docs/assets/vocal-chain.png) | ![Graphic EQ](docs/assets/space-geq.png) | ![Safety & Limiter](docs/assets/safety-limiter.png) |
+
+| Recording Controls | App Settings (Automation) | App Settings (Practice & Backup) |
+|---|---|---|
+| ![Recording Controls](docs/assets/recording-section.png) | ![App Settings](docs/assets/app-settings.png) | ![App Settings More](docs/assets/app-settings-more.png) |
+
+*(WebP variants of all screenshots are also included in `docs/assets/`.)*
+
+## Feature reference (v3.7) — the full list
 
 ### Live monitoring & sound
 - Ultra-low-latency duplex engine (Oboe/AAudio, device-native sample rate,
@@ -111,13 +143,17 @@ Safety ON (−3 dBFS ceiling).
 
 ## Presets
 
-| Preset | Room | Mix | Comp | De-Esser | Gate | Character |
-|---|---|---|---|---|---|---|
-| Haramain | 100% | 45% | 65% | 45% | −48 dB | Masjid al-Haram, research-based (below) |
-| Masjid an-Nabawi | 82% | 38% | 58% | 42% | −48 dB | Gentler, sweeter, more intimate |
-| Studio Dry | 12% | 8% | 60% | 35% | −55 dB | Near-dry practice/monitoring |
-| Haramain (Original) | 95% | 52% | 70% | 50% | −45 dB | The user's own specified settings (boot default) |
-| Custom | — | — | — | — | — | Your saved combination (DataStore) |
+| Preset | Boost | Static | Suppress | Gate | De-Esser | Comp | Room | Mix | Character |
+|---|---|---|---|---|---|---|---|---|---|
+| Masjid al-Haram *(default)* | 50% | 60% | 40% | −45 dB | 50% | 70% | 95% | 52% | Expansive marble-hall reflections with crisp vocal presence |
+| Masjid an-Nabawi | 48% | 55% | 35% | −48 dB | 50% | 65% | 82% | 42% | Warm, balanced dome diffusion — gentler and more intimate |
+| Historic Stone Dome | 50% | 55% | 35% | −48 dB | 45% | 65% | 75% | 38% | Focused, resonant stone prayer-hall acoustics |
+| Local Masjid Hall | 50% | 50% | 35% | −50 dB | 45% | 60% | 45% | 25% | Natural medium community masjid ambiance |
+| Lead (Imam) | 50% | 60% | 35% | −50 dB | 45% | 65% | 60% | 30% | Voice in front, steady and clear, with space underneath |
+| Studio Dry | 45% | 70% | 50% | −55 dB | 40% | 55% | 0% | 0% | Zero-reverb vocal isolation for clean checking & recording |
+| Simple Studio | 50% | 60% | 45% | −50 dB | 40% | 55% | 10% | 6% | Clean, nearly dry, natural speech polish |
+| Auto | — | — | — | — | — | — | — | — | Built by Auto Setup from your room noise and voice sample |
+| Custom | — | — | — | — | — | — | — | — | Your saved combination (DataStore) |
 
 ### Preset research notes
 
@@ -176,21 +212,15 @@ Why "Haramain" is NOT just a name — what the published acoustics say:
 ## DSP chain (exact signal order)
 
 1. **Mic Boost** — 0–200% → 0–+24 dB, tanh soft-knee saturation
-2. **Static Remover** — steep 85 Hz HPF (24 dB/oct) + HF hiss attenuation that
-   only bites while the voice is quiet
-3. **Noise Gate** — −80–0 dB threshold, mean-absolute envelope, hysteresis
-4. **Noise Suppression** — min-statistics noise floor + Wiener-style gain;
-   Android's platform `NoiseSuppressor`/`AcousticEchoCanceler` are also
-   attached to the input session when the device offers them
+2. **Static Remover** — steep 85 Hz HPF (24 dB/oct) + quiet-only HF hiss attenuation
+3. **Noise Gate** — −80–0 dB threshold, mean-absolute envelope, 150 ms hold, 6 dB hysteresis
+4. **Noise Suppression** — minimum-statistics noise floor + floor-relative gain (up to ~−16 dB in phrase gaps). Platform `NoiseSuppressor` never attaches; platform `AcousticEchoCanceler` attaches only on speaker + internal-mic feedback-risk routes.
 5. **De-Esser** — split-band, 5–8 kHz sidechain
-6. **Compressor** — 3 ms attack / 180 ms release, auto makeup gain
-7. **Haramain EQ + Reverb** — −1.5 dB low shelf, +3.5 dB presence at
-   3.4 kHz, +1 dB air; Freeverb (8 combs + 4 allpasses per channel) with
-   12–40 ms pre-delay so the dry voice stays upfront
-8. **Stereo Balance** — constant-power pan, L100–Center–R100
-9. **Safety + Brickwall Limiter** — Safety ON: −3 dBFS ceiling, −12 dBFS cap
-   when speaker-out + built-in mic risks feedback; Safety OFF: −0.5 dBFS
-   brickwall only
+6. **Compressor** — 3 ms attack / 180 ms release, soft knee, auto makeup gain
+7. **EQ & Haramain Space** — fixed vocal voicing (+3.5 dB @ 3.4 kHz) + Bass/Treble shelves (±12 dB) + 3-band Vocal Tone Sculptor (Warmth/Clarity/Air) + 5-band Graphic EQ (60/250/1k/4k/12k Hz) → Freeverb (8 combs + 4 allpasses per channel, 12–40 ms pre-delay, damping & stereo width controls, Bluetooth dry-ducking)
+8. **Stereo Balance** — constant-power pan, L100–Center–R100 (Monitor Ears L/R fold-down happens after the recording tap so takes stay stereo)
+8b. **Anti-Howl Notch Bank** — up to 4 peaking notches (−15 dB, Q 24) placed by the worker-thread FFT Feedback Guard (12 s expiry)
+9. **Safety + Brickwall Limiter** — Safety ON: −3 dBFS ceiling (−12 dBFS cap on speaker + built-in mic feedback-risk routes); Safety OFF: −0.5 dBFS brickwall only
 
 > Gate tuning note: the gate reads the *boosted* signal, so its threshold must
 > sit above your mic's boosted hiss floor. Typical phone mic: −45 dB default is
@@ -245,29 +275,16 @@ Oboe comes from Prefab (`com.google.oboe:oboe:1.9.0`, `buildFeatures.prefab = tr
 # APK lands in app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Host DSP test (no Android needed)
+## Testing & Release Verification
 
-The DSP chain is portable C++17 and is verified on the host:
+See [docs/TESTING.md](docs/TESTING.md) for the integrated testing manual:
+- **Automated regression:** Host C++ DSP suite (`dsp_chain_test.cpp`) + Kotlin JVM unit tests (`app/src/test/`) run in CI on every push.
+- **Manual on-device test plan:** Pre-release checklist covering presets, routing/Bluetooth, connection automation, directed listening tests for the quiet DSP stages, Feedback Guard, recording/trim/waqf marks, and system integration.
 
-```
-g++ -std=c++17 -O2 -I app/src/main/cpp app/src/main/cpp/test/dsp_chain_test.cpp -o /tmp/dsp_test && /tmp/dsp_test
-```
+## Documentation, License & Changelog
 
-Verified behavior: silence stays silent; a 0 dBFS signal at 200% boost is held
-to exactly −0.5 dBFS with safety off and under −3 dBFS with safety on; hiss at
-the typical phone-mic floor is crushed below −68 dB by the default gate;
-hard-left balance silences the right channel; mute is exact zero.
-
-## Known limits
-
-- Latency readout is an estimate from stream buffer sizes (input + output +
-  one burst); true round-trip varies by device, typically 10–20 ms wired.
-- `AudioEngine::getAudioSessionId()` uses Oboe's session id (API 31+ AAudio);
-  on older devices platform effects simply don't attach and the C++ stages
-  carry the full load.
-
-## Changelog
-
-Release-by-release history lives in [CHANGELOG.md](CHANGELOG.md)
-(v1.0 through v3.6).
+- **Testing manual:** [docs/TESTING.md](docs/TESTING.md) (automated C++/JVM regression + on-device test plan)
+- **Changelog:** [CHANGELOG.md](CHANGELOG.md) (v1.0 through v3.7)
+- **License:** [LICENSE](LICENSE) (Apache License 2.0)
+- **Privacy Policy:** [PRIVACY.md](PRIVACY.md) (offline, zero network permissions, on-device only)
 

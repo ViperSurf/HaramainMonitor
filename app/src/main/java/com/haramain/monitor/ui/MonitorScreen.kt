@@ -50,8 +50,8 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -386,7 +386,7 @@ fun MonitorScreen(
                         containerColor = if (running) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                     ),
                 ) {
-                    Icon(if (running) Icons.Filled.VolumeOff else Icons.Filled.VolumeUp, contentDescription = null)
+                    Icon(if (running) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)
                     Text(
                         if (running) "Stop Monitoring" else "Start Monitoring",
                         style = MaterialTheme.typography.titleMedium,
@@ -403,7 +403,7 @@ fun MonitorScreen(
                             contentColor = MaterialTheme.colorScheme.onError,
                         ),
                     ) {
-                        Icon(Icons.Filled.VolumeOff, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.VolumeOff, contentDescription = null)
                         Text("UNMUTE", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
                     }
                 } else {
@@ -425,7 +425,7 @@ fun MonitorScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.VolumeOff, contentDescription = null, tint = MaterialTheme.colorScheme.onError)
+                            Icon(Icons.AutoMirrored.Filled.VolumeOff, contentDescription = null, tint = MaterialTheme.colorScheme.onError)
                             Text(
                                 "MUTED — you can't hear yourself",
                                 color = MaterialTheme.colorScheme.onError,
@@ -564,19 +564,20 @@ fun MonitorScreen(
                 }
             }
             Spacer(Modifier.height(8.dp))
+            val autoNow = autoPreset
+            val autoSelected = autoNow != null && params.copy(muted = false) == autoNow.copy(muted = false)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PresetKind.entries.forEach { kind ->
                     FilterChip(
-                        selected = preset == kind,
+                        selected = preset == kind && !(kind == PresetKind.CUSTOM && autoSelected),
                         enabled = controlsEnabled && (kind != PresetKind.CUSTOM || hasCustom || preset == PresetKind.CUSTOM),
                         onClick = { viewModel.selectPreset(kind) },
                         label = { Text(kind.label) },
                     )
                 }
                 if (hasAuto) {
-                    val autoNow = autoPreset
                     FilterChip(
-                        selected = autoNow != null && params.copy(muted = false) == autoNow.copy(muted = false),
+                        selected = autoSelected,
                         enabled = controlsEnabled,
                         onClick = { viewModel.applySavedAuto() },
                         label = { Text("Auto") },
@@ -585,8 +586,6 @@ fun MonitorScreen(
             }
             Spacer(Modifier.height(10.dp))
             Text("About this space", style = MaterialTheme.typography.titleSmall)
-            val autoNowPanel = autoPreset
-            val autoSelected = autoNowPanel != null && params.copy(muted = false) == autoNowPanel.copy(muted = false)
             Text(
                 if (autoSelected) {
                     "Auto — built by Auto Setup from the sound of your room and your voice."
@@ -1386,7 +1385,7 @@ private fun DevicePicker(
             label = { Text(label) },
             leadingIcon = { Icon(icon, contentDescription = null) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            modifier = Modifier.menuAnchor(androidx.compose.material3.MenuAnchorType.PrimaryNotEditable, enabled).fillMaxWidth(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(

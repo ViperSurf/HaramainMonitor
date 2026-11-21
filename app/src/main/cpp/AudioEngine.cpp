@@ -155,13 +155,14 @@ void AudioEngine::setBufferMode(int32_t bursts) {
     const int32_t b = std::max<int32_t>(1, std::min<int32_t>(4, bursts));
     mUserBursts.store(b);
     if (mRunning.load() && mOutputStream) {
-        mBufferMultiplier.store(b);
-        mOutputStream->setBufferSizeInFrames(mOutputBurst.load() * b);
+        const int32_t eff = mUsageGame.load() ? std::max<int32_t>(b, 2) : b;
+        mBufferMultiplier.store(eff);
+        mOutputStream->setBufferSizeInFrames(mOutputBurst.load() * eff);
         if (mInputStream) {
-            mInputStream->setBufferSizeInFrames(mInputStream->getFramesPerBurst() * b);
+            mInputStream->setBufferSizeInFrames(mInputStream->getFramesPerBurst() * eff);
         }
         mLastXRunSeen.store(getXRunCount());   // don't let the grower instantly override the user
-        LOGI("Buffer mode set by user: %d bursts", b);
+        LOGI("Buffer mode set by user: %d bursts (effective %d)", b, eff);
     }
 }
 
@@ -335,8 +336,9 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(oboe::AudioStream *stream, vo
             mMicRing[(head + i) & (kMicRingSize - 1)] = in[i];
         }
         mMicHead.store(head + toWrite, std::memory_order_release);
-        // Pitch history (raw input) + dry-vocal recording tap.
-        if (mPitchEnabled.load(std::memory_order_relaxed)) {
+        // Pitch & howl-guard history (raw input) + dry-vocal recording tap.
+        if (mPitchEnabled.load(std::memory_order_relaxed) ||
+            aHowlGuardOn.load(std::memory_order_relaxed)) {
             const size_t ph = mPitchHead.load(std::memory_order_relaxed);
             for (int32_t i = 0; i < numFrames; ++i)
                 mPitchRing[(ph + static_cast<size_t>(i)) & (kPitchHist - 1)] = raw[i];

@@ -77,7 +77,12 @@ class RecordingsActivity : ComponentActivity() {
                 mode = SettingsStore(this@RecordingsActivity).themeMode.first()
             }
             HaramainMonitorTheme(mode) {
-                RecordingsScreen(onBack = { finish() })
+                androidx.compose.material3.Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    RecordingsScreen(onBack = { finish() })
+                }
             }
         }
     }
