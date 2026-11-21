@@ -30,6 +30,12 @@ here on 2026-11-16.
   `dsp_chain_test.cpp` (feedbackRisk cap, notch re-arming), wired both
   plus JNI symbol & naming checks into CI, and added the integrated
   testing manual (`docs/TESTING.md`).
+- **About & Support section (`AboutSection.kt`):** collapsible section
+  with dynamic version/build readout, one-tap Copy Diagnostics, inline
+  What's New changelog, FAQ & Quick Guide, pre-filled GitHub Bug Report
+  and Feature Request deep-links (`.github/ISSUE_TEMPLATE/`), live
+  System & Diagnostics status, third-party licenses, and offline Privacy
+  Policy & Honesty Disclaimer.
 - **Docs & Store Readiness:** updated `README.md` with all 9 presets,
   exact parameters, plain-English vocal/reverb overview, screenshots,
   walkthrough demo, and the current v3.7 DSP chain; added Apache 2.0

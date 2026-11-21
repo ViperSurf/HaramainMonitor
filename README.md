@@ -140,6 +140,12 @@ Safety ON (−3 dBFS ceiling) · Feedback Guard ON.
 - Earbud / lock-screen mute: media buttons and the system media
   controls toggle mute while monitoring (media session owned by the
   service).
+- About & Support section: dynamic version/build info with one-tap
+  Copy Diagnostics, inline What's New changelog, FAQ & Quick Guide,
+  pre-filled GitHub Bug Report / Feature Request deep-links, live
+  System & Diagnostics summary (permissions, audio engine, local
+  recordings storage), third-party open-source licenses, and offline
+  Privacy Policy & Honesty Disclaimer.
 
 ## Presets
 

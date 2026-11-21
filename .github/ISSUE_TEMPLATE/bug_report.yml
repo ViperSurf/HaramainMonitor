@@ -1,0 +1,27 @@
+name: Bug Report
+description: Report a bug or audio/routing issue in Haramain Monitor
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the issue and what you expected to happen.
+      placeholder: "e.g. Unplugging USB mic while monitoring did not stop monitoring..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Connect USB mic and wired headphones
+        2. Tap Start Monitoring
+        3. ...
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: App & Device Diagnostics
+      description: Paste output from "About & Support → Copy diagnostics" (auto-filled when opened from the app).
+      render: text

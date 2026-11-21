@@ -1030,6 +1030,20 @@ fun MonitorScreen(
             )
         }
 
+        // ---------- About & Support ----------
+        ExpandableSection(
+            title = "About & Support",
+            expanded = openSections["about"] == true,
+            onExpandedChange = { viewModel.setSectionOpen("about", it) },
+            help = "Version & build info, What's New changelog, FAQ & quick guide, bug report / feature request links, system diagnostics, third-party licenses, and offline privacy policy.",
+        ) {
+            AboutAndSupportContent(
+                viewModel = viewModel,
+                micGranted = micGranted,
+                onRequestMicPermission = onRequestMicPermission,
+            )
+        }
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Speaker, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(

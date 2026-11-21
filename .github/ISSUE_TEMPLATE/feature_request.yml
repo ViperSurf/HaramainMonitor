@@ -1,0 +1,17 @@
+name: Feature Request
+description: Suggest an improvement or new feature for Haramain Monitor
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Use case / problem
+      description: What recitation, monitoring, or vocal workflow would this help with?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should it work while keeping the real-time audio callback allocation-free and popup-free?
