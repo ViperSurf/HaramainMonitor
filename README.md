@@ -25,7 +25,9 @@ Safety ON (−3 dBFS ceiling) · Feedback Guard ON.
 
 ## Screenshots & Walkthrough
 
-<video src="docs/assets/demo.webm" controls muted playsinline width="360"></video>
+![Demo](docs/assets/demo.webp)
+
+*(Full-resolution walkthrough video: [docs/assets/demo.webm](docs/assets/demo.webm))*
 
 | Live Dashboard | Presets | Recording Controls |
 |---|---|---|
