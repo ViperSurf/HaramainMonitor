@@ -46,8 +46,10 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -58,19 +60,30 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
@@ -90,6 +103,7 @@ import com.haramain.monitor.audio.RouteDevice
 import com.haramain.monitor.audio.AutoCalibrator
 import com.haramain.monitor.audio.CalStats
 import com.haramain.monitor.data.ThemeMode
+import com.haramain.monitor.data.ThemePalette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -105,7 +119,13 @@ import kotlin.math.roundToInt
  * Below: presets, then one PrecisionControl per DSP parameter.
  * Boots on the user's own Haramain (Original) preset (Room 95, Mix 52, Comp 70, De-Esser 50).
  */
-@OptIn(ExperimentalLayoutApi::class)
+private enum class MonitorTab(val label: String, val icon: ImageVector) {
+    MONITOR("Monitor", Icons.Filled.GraphicEq),
+    SOUND("Sound", Icons.Filled.Tune),
+    SETTINGS("Settings", Icons.Filled.Settings),
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MonitorScreen(
     viewModel: MonitorViewModel,
@@ -127,6 +147,7 @@ fun MonitorScreen(
     val feedbackRisk by viewModel.feedbackRisk.collectAsState()
     val locked by viewModel.settingsLocked.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
+    val themePalette by viewModel.themePalette.collectAsState()
     val hasPin by viewModel.hasPin.collectAsState()
     val resumeOnLaunch by viewModel.resumeOnLaunch.collectAsState()
     val autoStopMinutes by viewModel.autoStopMinutes.collectAsState()
@@ -154,13 +175,20 @@ fun MonitorScreen(
     var showSetPinDialog by remember { mutableStateOf(false) }
     var showAutoDialog by remember { mutableStateOf(false) }
     var showMicManager by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
     val displayInputs by viewModel.displayInputs.collectAsState()
     val hasAuto by viewModel.hasAuto.collectAsState()
     val autoPreset by viewModel.autoPreset.collectAsState()
     val exportFolderUri by viewModel.exportFolderUri.collectAsState()
     val openSections by viewModel.openSections.collectAsState()
     var pendingExport by remember { mutableStateOf<String?>(null) }
+    var selectedTab by remember { mutableStateOf(MonitorTab.MONITOR) }
+    var overflowOpen by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
     val uiScope = rememberCoroutineScope()
+    fun showSnack(msg: String) {
+        uiScope.launch { snackbarHostState.showSnackbar(msg) }
+    }
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
     ) { uri ->
@@ -175,11 +203,7 @@ fun MonitorScreen(
                         true
                     } catch (_: Exception) { false }
                 }
-                Toast.makeText(
-                    context,
-                    if (ok) "Settings exported" else "Export failed",
-                    Toast.LENGTH_SHORT,
-                ).show()
+                showSnack(if (ok) "Settings exported" else "Export failed")
             }
         }
     }
@@ -195,11 +219,7 @@ fun MonitorScreen(
                     } catch (_: Exception) { null }
                 }
                 val ok = text?.let { viewModel.importSettings(it) } ?: false
-                Toast.makeText(
-                    context,
-                    if (ok) "Settings imported" else "That file isn't a Haramain Monitor settings export",
-                    Toast.LENGTH_LONG,
-                ).show()
+                showSnack(if (ok) "Settings imported" else "That file isn't a Haramain Monitor settings export")
             }
         }
     }
@@ -217,63 +237,170 @@ fun MonitorScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        // ---------- Header ----------
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.GraphicEq, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Column(Modifier.padding(start = 10.dp)) {
-                Text("Haramain Monitor", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text(
-                    when {
-                        running && params.muted -> "🔇 MUTED — tap Unmute to hear yourself"
-                        running -> "● LIVE — monitoring"
-                        else -> "Live vocal monitoring • Oboe / AAudio"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = when {
-                        running && params.muted -> MaterialTheme.colorScheme.error
-                        running -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            }
-        }
-
-        if (locked) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Row(
-                    Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-                    Text(
-                        "Settings are locked — controls are read-only. Start/Stop, Mute and Rec still work.",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 8.dp),
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("Haramain Monitor", fontWeight = FontWeight.Bold)
+                        Text(
+                            when {
+                                running && params.muted -> "MUTED — tap Unmute to listen"
+                                running -> "● LIVE — monitoring"
+                                else -> "Live vocal monitoring • Oboe / AAudio"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when {
+                                running && params.muted -> MaterialTheme.colorScheme.error
+                                running -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        context.startActivity(Intent(context, RecordingsActivity::class.java))
+                    }) {
+                        Icon(Icons.Filled.LibraryMusic, contentDescription = "Open Recordings Library")
+                    }
+                    Box {
+                        IconButton(onClick = { overflowOpen = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "More options")
+                        }
+                        DropdownMenu(expanded = overflowOpen, onDismissRequest = { overflowOpen = false }) {
+                            DropdownMenuItem(
+                                leadingIcon = { Icon(Icons.Filled.Mic, contentDescription = null) },
+                                text = { Text("Name & organize mics") },
+                                enabled = controlsEnabled,
+                                onClick = { overflowOpen = false; showMicManager = true },
+                            )
+                            DropdownMenuItem(
+                                leadingIcon = { Icon(Icons.Filled.Tune, contentDescription = null) },
+                                text = { Text("Auto Setup") },
+                                enabled = controlsEnabled,
+                                onClick = { overflowOpen = false; showAutoDialog = true },
+                            )
+                            DropdownMenuItem(
+                                leadingIcon = { Icon(Icons.Filled.Save, contentDescription = null) },
+                                text = { Text("Save Custom preset") },
+                                enabled = controlsEnabled,
+                                onClick = {
+                                    overflowOpen = false
+                                    viewModel.saveCustom()
+                                    showSnack("Custom preset saved")
+                                },
+                            )
+                            DropdownMenuItem(
+                                leadingIcon = {
+                                    Icon(
+                                        if (locked) Icons.Filled.LockOpen else Icons.Filled.Lock,
+                                        contentDescription = null,
+                                    )
+                                },
+                                text = { Text(if (locked) "Unlock settings" else "Lock settings") },
+                                onClick = {
+                                    overflowOpen = false
+                                    if (locked) {
+                                        if (hasPin) showUnlockDialog = true else viewModel.unlockSettings("") {}
+                                    } else {
+                                        viewModel.lockSettings()
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Export settings") },
+                                onClick = {
+                                    overflowOpen = false
+                                    uiScope.launch {
+                                        pendingExport = viewModel.buildExportJson()
+                                        exportLauncher.launch("haramain-settings.json")
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Import settings") },
+                                onClick = {
+                                    overflowOpen = false
+                                    importLauncher.launch(arrayOf("application/json"))
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Reset all settings", color = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    overflowOpen = false
+                                    showResetDialog = true
+                                },
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+            )
+        },
+        bottomBar = {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+                MonitorTab.entries.forEach { tab ->
+                    NavigationBarItem(
+                        selected = selectedTab == tab,
+                        onClick = { selectedTab = tab },
+                        icon = { Icon(tab.icon, contentDescription = tab.label) },
+                        label = { Text(tab.label) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
                     )
                 }
             }
-        }
-
-        if (!micGranted) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                Column(Modifier.padding(14.dp)) {
-                    Text("Microphone permission needed", fontWeight = FontWeight.Bold)
-                    Text("Live monitoring can't start without it.", style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = onRequestMicPermission) { Text("Grant microphone access") }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            if (locked) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                    Row(
+                        Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                        Text(
+                            "Settings are locked — controls are read-only. Start/Stop, Mute and Rec still work.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
                 }
             }
-        }
+
+            if (!micGranted) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text("Microphone permission needed", fontWeight = FontWeight.Bold)
+                        Text("Live monitoring can't start without it.", style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(8.dp))
+                        Button(onClick = onRequestMicPermission) { Text("Grant microphone access") }
+                    }
+                }
+            }
+
+            if (selectedTab == MonitorTab.MONITOR) {
 
         // ---------- Routing bar ----------
-        ExpandableSection(title = "Hardware Routing", expanded = openSections["routing"] ?: true, onExpandedChange = { viewModel.setSectionOpen("routing", it) }, help = "Choose exactly which mic records you and which speaker or earbuds you hear. If a Bluetooth mic is offered, the phone or USB mic with Bluetooth output sounds far better: Bluetooth mics send your voice through a low-quality call channel.") {
+        ExpandableSection(title = "Hardware Routing", expanded = openSections["routing"] == true, onExpandedChange = { viewModel.setSectionOpen("routing", it) }, help = "Choose exactly which mic records you and which speaker or earbuds you hear. If a Bluetooth mic is offered, the phone or USB mic with Bluetooth output sounds far better: Bluetooth mics send your voice through a low-quality call channel.") {
             DevicePicker(
                 label = "Input Mic",
                 icon = Icons.Filled.Mic,
@@ -545,6 +672,8 @@ fun MonitorScreen(
             }
         }
 
+        } // end MonitorTab.MONITOR
+            if (selectedTab == MonitorTab.SOUND) {
         // ---------- Presets ----------
         ExpandableSection(title = "Presets", expanded = openSections["presets"] ?: true, onExpandedChange = { viewModel.setSectionOpen("presets", it) }, help = "Ready-made spaces. Tap one to load it; moving any slider afterwards turns your sound into Custom. Auto Setup measures your room and your voice and builds a preset for you.") {
             Row(
@@ -835,6 +964,8 @@ fun MonitorScreen(
             )
         }
 
+        } // end MonitorTab.SOUND
+            if (selectedTab == MonitorTab.SETTINGS) {
         // ---------- Safety ----------
         ExpandableSection(title = "Safety & Limiter", expanded = openSections["safety"] == true, onExpandedChange = { viewModel.setSectionOpen("safety", it) }) {
             ToggleRow(
@@ -874,7 +1005,7 @@ fun MonitorScreen(
         }
 
         // ---------- App settings ----------
-        ExpandableSection(title = "App Settings", expanded = openSections["appsettings"] == true, onExpandedChange = { viewModel.setSectionOpen("appsettings", it) }) {
+        ExpandableSection(title = "App Settings", expanded = openSections["appsettings"] ?: true, onExpandedChange = { viewModel.setSectionOpen("appsettings", it) }) {
             Text("Theme", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(6.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -883,6 +1014,18 @@ fun MonitorScreen(
                         selected = themeMode == mode,
                         onClick = { viewModel.setTheme(mode) },
                         label = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("Color palette", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(6.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ThemePalette.entries.forEach { pal ->
+                    FilterChip(
+                        selected = themePalette == pal,
+                        onClick = { viewModel.setThemePalette(pal) },
+                        label = { Text(pal.label) },
                     )
                 }
             }
@@ -1028,6 +1171,13 @@ fun MonitorScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp),
             )
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = { showResetDialog = true },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) {
+                Text("Reset all settings")
+            }
         }
 
         // ---------- About & Support ----------
@@ -1041,8 +1191,10 @@ fun MonitorScreen(
                 viewModel = viewModel,
                 micGranted = micGranted,
                 onRequestMicPermission = onRequestMicPermission,
+                onShowMessage = ::showSnack,
             )
         }
+            } // end MonitorTab.SETTINGS
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Speaker, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1054,6 +1206,7 @@ fun MonitorScreen(
             )
         }
         Spacer(Modifier.height(12.dp))
+        }
     }
 
     if (showMicManager) {
@@ -1130,6 +1283,29 @@ fun MonitorScreen(
             },
         )
     }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Reset all settings?") },
+            text = {
+                Text(
+                    "Resets theme, presets, routing memory, automation toggles, mic names, practice log, and lock PIN back to first-launch defaults. Your saved recordings are never deleted.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showResetDialog = false
+                    viewModel.resetAllSettings { showSnack("Settings reset to defaults") }
+                }) {
+                    Text("Reset", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
 }
 
 /**
@@ -1146,9 +1322,10 @@ private fun ExpandableSection(
     help: String? = null,
     content: @Composable () -> Unit,
 ) {
-    Card(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
         Column {
             Row(
@@ -1196,9 +1373,10 @@ private fun ExpandableSection(
 
 @Composable
 private fun SectionCard(content: @Composable () -> Unit) {
-    Card(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
         Column(Modifier.padding(16.dp)) { content() }
     }
@@ -1273,10 +1451,14 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
     } else "Start monitoring to see the live audio path"
     Box(
         modifier = Modifier.clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(MaterialTheme.colorScheme.tertiaryContainer)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
-        Text(pillText, style = MaterialTheme.typography.labelLarge)
+        Text(
+            pillText,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onTertiaryContainer,
+        )
     }
     if (running) {
         // Processing activity: how hard each stage is working right now
@@ -1335,6 +1517,7 @@ private fun MetersPanel(viewModel: MonitorViewModel) {
                     } else "Listening…",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.padding(end = 10.dp),
                 )
             }

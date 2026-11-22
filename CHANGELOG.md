@@ -1,10 +1,10 @@
 # Changelog
 
 All notable changes to Haramain Monitor. Newest first. Through
-v3.6 this history lived at the bottom of the README; it moved
+v4.0 this history lived at the bottom of the README; it moved
 here on 2026-11-16.
 
-## v3.7 — Reliability fixes, automated testing & documentation
+## v4.0 — Material 3 redesign, 3-accent palettes, About & Support, reliability & tests
 
 - **Bug fix (Feedback Guard):** `AudioEngine` now feeds `mPitchRing`
   whenever `aHowlGuardOn` is enabled, not only when Voice Steadiness
@@ -30,6 +30,16 @@ here on 2026-11-16.
   `dsp_chain_test.cpp` (feedbackRisk cap, notch re-arming), wired both
   plus JNI symbol & naming checks into CI, and added the integrated
   testing manual (`docs/TESTING.md`).
+- **Material 3 Redesign & 3-Accent Color System (`Theme.kt`, `MonitorScreen.kt`, `RecordingsActivity.kt`):**
+  - Pure `#000000` OLED dark mode with two selectable 3-accent palettes:
+    **Studio Orange** (default: Black/Espresso + Studio Orange + Amber-Bronze + Silver-Gray)
+    and **Haramain Emerald** (Emerald + Warm Brass + Teal-Cyan).
+  - Left-aligned Top App Bar with Library shortcut & 3-dot overflow menu (`⋮`),
+    3-tab Bottom Navigation Bar (**Monitor** · **Sound** · **Settings**),
+    Snackbar + Banner + Dialog feedback tiers, and Library Search + per-take
+    3-dot kebab menu.
+  - Added **Reset all settings** (with confirmation dialog) in App Settings
+    and overflow menu.
 - **About & Support section (`AboutSection.kt`):** collapsible section
   with dynamic version/build readout, one-tap Copy Diagnostics, inline
   What's New changelog, FAQ & Quick Guide, pre-filled GitHub Bug Report
@@ -37,8 +47,8 @@ here on 2026-11-16.
   System & Diagnostics status, third-party licenses, and offline Privacy
   Policy & Honesty Disclaimer.
 - **Docs & Store Readiness:** updated `README.md` with all 9 presets,
-  exact parameters, plain-English vocal/reverb overview, screenshots,
-  walkthrough demo, and the current v3.7 DSP chain; added Apache 2.0
+  exact parameters, plain-English vocal/reverb overview, uniform screenshots,
+  walkthrough demo, and the current v4.0 DSP chain; added Apache 2.0
   `LICENSE`, `PRIVACY.md`, `fastlane/metadata/android/en-US/` store
   listings/screenshots, `RETROSPECTIVE.md`, and optional env-var release
   signing in `app/build.gradle.kts`.

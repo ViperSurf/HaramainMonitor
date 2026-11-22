@@ -17,7 +17,7 @@ foreground service support.
   the Library, and a Hz-only **Voice Steadiness** breath mirror for held
   vowels (*madd*).
 
-**Current version:** v3.7 (`versionCode 25`) · **License:** [Apache 2.0](LICENSE) · **Privacy:** [100% offline, on-device only](PRIVACY.md)
+**Current version:** v4.0 (`versionCode 25`) · **License:** [Apache 2.0](LICENSE) · **Privacy:** [100% offline, on-device only](PRIVACY.md)
 
 **Defaults on first launch — Masjid al-Haram (the user's specified
 settings):** Room 95% · Mix 52% · Compressor 70% · De-Esser 50% · Gate −45 dB ·
@@ -27,21 +27,17 @@ Safety ON (−3 dBFS ceiling) · Feedback Guard ON.
 
 <video src="docs/assets/demo.webm" controls muted playsinline width="360"></video>
 
-| Live Dashboard & Routing | Presets & Vocal Chain | Recordings Library |
+| Live Dashboard | Presets | Recording Controls |
 |---|---|---|
-| ![Live Dashboard](docs/assets/monitor-dashboard.png) | ![Presets & Vocal Chain](docs/assets/presets-vocal-chain.png) | ![Recordings Library](docs/assets/library-waqf.png) |
-
-| Vocal Chain Controls | Graphic EQ | Safety & Limiter |
-|---|---|---|
-| ![Vocal Chain](docs/assets/vocal-chain.png) | ![Graphic EQ](docs/assets/space-geq.png) | ![Safety & Limiter](docs/assets/safety-limiter.png) |
-
-| Recording Controls | App Settings (Automation) | App Settings (Practice & Backup) |
-|---|---|---|
-| ![Recording Controls](docs/assets/recording-section.png) | ![App Settings](docs/assets/app-settings.png) | ![App Settings More](docs/assets/app-settings-more.png) |
+| <img src="docs/assets/monitor-dashboard.png" width="240" alt="Live Dashboard" /> | <img src="docs/assets/presets-vocal-chain.png" width="240" alt="Presets" /> | <img src="docs/assets/recording-section.png" width="240" alt="Recording Controls" /> |
+| **Vocal Chain** | **Graphic EQ** | **Safety & Limiter** |
+| <img src="docs/assets/vocal-chain.png" width="240" alt="Vocal Chain" /> | <img src="docs/assets/space-geq.png" width="240" alt="Graphic EQ" /> | <img src="docs/assets/safety-limiter.png" width="240" alt="Safety & Limiter" /> |
+| **App Settings** | **Practice & Backup** | **Recordings Library** |
+| <img src="docs/assets/app-settings.png" width="240" alt="App Settings" /> | <img src="docs/assets/app-settings-more.png" width="240" alt="Practice & Backup" /> | <img src="docs/assets/library-waqf.png" width="240" alt="Recordings Library" /> |
 
 *(WebP variants of all screenshots are also included in `docs/assets/`.)*
 
-## Feature reference (v3.7) — the full list
+## Feature reference (v4.0) — the full list
 
 ### Live monitoring & sound
 - Ultra-low-latency duplex engine (Oboe/AAudio, device-native sample rate,
@@ -131,12 +127,18 @@ Safety ON (−3 dBFS ceiling) · Feedback Guard ON.
   your voice and room, then sets Boost/Gate/Suppression for you.
 
 ### App & safety
-- Collapsible sections (Routing and Presets open by default; your
+- Collapsible sections (Presets and App Settings open by default; your
   layout is remembered), every control has a plain-language help text.
 - Settings lock with PIN; settings export/import as JSON (mic names,
   section layout, preferences — PIN and recording folder excluded).
-- Themes: system / light / dark; themed app icon (brass crescent + mic
-  on deep emerald) with monochrome and round variants.
+- Themes & Color Palettes: System / Light / Dark (pure `#000000` OLED dark
+  mode) with two 3-accent palettes — **Studio Orange** (default: Black /
+  Espresso-Brown + Studio Orange + Amber-Bronze + Silver-Gray) and
+  **Haramain Emerald** (Emerald + Warm Brass + Teal-Cyan).
+- Material 3 Navigation & Ergonomics: Left-aligned Top App Bar with
+  Library shortcut and 3-dot overflow menu (`⋮`), 3-tab Bottom Navigation
+  Bar (**Monitor** · **Sound** · **Settings**), Search + 3-dot action menus
+  in Library, and **Reset all settings** with confirmation dialog.
 - Earbud / lock-screen mute: media buttons and the system media
   controls toggle mute while monitoring (media session owned by the
   service).
@@ -290,7 +292,7 @@ See [docs/TESTING.md](docs/TESTING.md) for the integrated testing manual:
 ## Documentation, License & Changelog
 
 - **Testing manual:** [docs/TESTING.md](docs/TESTING.md) (automated C++/JVM regression + on-device test plan)
-- **Changelog:** [CHANGELOG.md](CHANGELOG.md) (v1.0 through v3.7)
+- **Changelog:** [CHANGELOG.md](CHANGELOG.md) (v1.0 through v4.0)
 - **License:** [LICENSE](LICENSE) (Apache License 2.0)
 - **Privacy Policy:** [PRIVACY.md](PRIVACY.md) (offline, zero network permissions, on-device only)
 

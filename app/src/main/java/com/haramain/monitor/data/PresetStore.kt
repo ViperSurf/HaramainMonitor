@@ -75,6 +75,11 @@ class PresetStore(private val context: Context) {
         context.dataStore.edit { it.writeParams(PREFIX_LAST, params) }
     }
 
+    /** Clears Custom, Auto, Last, and all per-microphone saved presets. */
+    suspend fun clearAll() {
+        context.dataStore.edit { it.clear() }
+    }
+
     // ---- (de)serialization: one key per field, prefixed per slot ----
 
     private fun Preferences.readParams(prefix: String): AudioParams? {

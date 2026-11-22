@@ -71,6 +71,7 @@ fun AboutAndSupportContent(
     viewModel: MonitorViewModel,
     micGranted: Boolean,
     onRequestMicPermission: () -> Unit,
+    onShowMessage: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val running by viewModel.isRunning.collectAsState()
@@ -124,7 +125,7 @@ fun AboutAndSupportContent(
     Text(
         "Version $versionName (Build $versionCode) • Apache License 2.0 • 100% Offline",
         style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
+        color = MaterialTheme.colorScheme.tertiary,
         modifier = Modifier.padding(top = 4.dp, bottom = 6.dp),
     )
 
@@ -132,7 +133,8 @@ fun AboutAndSupportContent(
         OutlinedButton(onClick = {
             val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             cm.setPrimaryClip(ClipData.newPlainText("Haramain Diagnostics", buildDiagnostics()))
-            Toast.makeText(context, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()
+            if (onShowMessage != null) onShowMessage("Diagnostics copied to clipboard")
+            else Toast.makeText(context, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()
         }) {
             Icon(Icons.Filled.ContentCopy, contentDescription = null)
             Text("Copy diagnostics", modifier = Modifier.padding(start = 6.dp))
@@ -295,7 +297,7 @@ private fun InlineAccordion(
 @Composable
 private fun ChangelogBody() {
     val notes = listOf(
-        "v3.7" to "Feedback Guard audio-feed fix when Voice Steadiness is off; Lead (Imam) preset highlight fix; Bluetooth 2-burst buffer floor preserved on mode changes; manual System Default picker re-baseline; Library dark/light Surface contrast fix; About & Support section; automated C++ & JVM regression suite.",
+        "v4.0" to "Material 3 redesign with 3-accent Studio Orange & Haramain Emerald palettes + pure OLED black dark mode; 3-tab Bottom Navigation (Monitor / Sound / Settings); About & Support section; Reset all settings; Feedback Guard & Lead preset fixes; automated C++ & JVM regression suite.",
         "v3.6" to "Voice Steadiness reframe (Hz-only breath mirror, no note names); finished takes stay loaded at the end in the Library; single-launch service collectors.",
         "v3.5" to "Fixed auto-record stop race; Library player gained pause/resume, seek slider, -10s/+10s skip, and A-B loop completion guard.",
         "v3.4" to "Connection automation keyed to actual routed device IDs with scope chips; Auto-trim finished recordings; Waqf phrase-end markers in Library.",
@@ -391,9 +393,9 @@ private fun readVersionInfo(context: Context): Pair<String, Long> = try {
         @Suppress("DEPRECATION")
         pkg.versionCode.toLong()
     }
-    (pkg.versionName ?: "3.7") to code
+    (pkg.versionName ?: "4.0") to code
 } catch (_: Exception) {
-    "3.7" to 25L
+    "4.0" to 25L
 }
 
 private fun openUrl(context: Context, url: String) {

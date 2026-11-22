@@ -63,7 +63,8 @@ class MainActivity : ComponentActivity() {
         if (!micGranted) requestPermissions() else maybeResumeOnLaunch()
         setContent {
             val themeMode by settings.themeMode.collectAsState(initial = com.haramain.monitor.data.ThemeMode.SYSTEM)
-            HaramainMonitorTheme(themeMode) {
+            val themePalette by settings.themePalette.collectAsState(initial = com.haramain.monitor.data.ThemePalette.STUDIO)
+            HaramainMonitorTheme(themeMode, themePalette) {
                 MonitorScreen(
                     viewModel = viewModel,
                     micGranted = micGranted,

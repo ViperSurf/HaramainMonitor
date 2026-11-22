@@ -8,6 +8,7 @@ name: Build installable APK
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -61,7 +62,7 @@ jobs:
 
       - name: Build release APK (non-debuggable, dev-signed)
         run: |
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease -PdevSigning=true --stacktrace
 
       - name: Verify 29 unmangled JNI symbols in APK
         run: |
@@ -78,6 +79,7 @@ jobs:
           retention-days: 90
 
       - name: Publish to rolling dev-latest pre-release
+        if: startsWith(github.ref, 'refs/heads/') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         continue-on-error: true   # the artifact above is the guaranteed path
         with:
@@ -89,4 +91,14 @@ jobs:
             Download app-release.apk below and open it on your phone to install
             (you may need to allow "install from this app" for your browser/Files).
             Signed with the project's stable dev key, so future builds update in place.
+          files: app/build/outputs/apk/release/app-release.apk
+
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Haramain Monitor ${{ github.ref_name }}
+          prerelease: false
+          generate_release_notes: true
           files: app/build/outputs/apk/release/app-release.apk

@@ -36,6 +36,7 @@ object SettingsTransfer {
 
         val settingsJson = JSONObject()
         settingsJson.put("theme", settings.themeMode.first().name)
+        settingsJson.put("themePalette", settings.themePalette.first().name)
         settingsJson.put("locked", settings.settingsLocked.first())
         settingsJson.put("resumeOnLaunch", settings.resumeOnLaunch.first())
         settingsJson.put("bufferMode", settings.bufferMode.first())
@@ -80,6 +81,10 @@ object SettingsTransfer {
             if (s.has("theme")) {
                 runCatching { ThemeMode.valueOf(s.getString("theme")) }
                     .getOrNull()?.let { settings.setTheme(it) }
+            }
+            if (s.has("themePalette")) {
+                runCatching { ThemePalette.valueOf(s.getString("themePalette")) }
+                    .getOrNull()?.let { settings.setThemePalette(it) }
             }
             if (s.has("locked")) settings.setLocked(s.getBoolean("locked"))
             if (s.has("resumeOnLaunch")) settings.setResume(s.getBoolean("resumeOnLaunch"))

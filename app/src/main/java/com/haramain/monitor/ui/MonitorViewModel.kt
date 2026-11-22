@@ -17,6 +17,7 @@ import com.haramain.monitor.audio.matchesPreset
 import com.haramain.monitor.data.PresetStore
 import com.haramain.monitor.data.SettingsStore
 import com.haramain.monitor.data.ThemeMode
+import com.haramain.monitor.data.ThemePalette
 import com.haramain.monitor.service.MicMonitorService
 import com.haramain.monitor.service.MonitorState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,8 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     // ---- app settings (theme / lock / resume) ----
     val themeMode: StateFlow<ThemeMode> = settings.themeMode
         .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
+    val themePalette: StateFlow<ThemePalette> = settings.themePalette
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemePalette.STUDIO)
     val settingsLocked: StateFlow<Boolean> = settings.settingsLocked
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val hasPin: StateFlow<Boolean> = settings.hasPin
@@ -46,6 +49,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { settings.setTheme(mode) }
+    fun setThemePalette(palette: ThemePalette) = viewModelScope.launch { settings.setThemePalette(palette) }
     fun setResume(enabled: Boolean) = viewModelScope.launch { settings.setResume(enabled) }
     fun lockSettings() = viewModelScope.launch { settings.setLocked(true) }
     fun setPin(pin: String?) = viewModelScope.launch { settings.setPin(pin) }
@@ -285,6 +289,18 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { settings.setMicHidden(deviceId, hidden) }
 
     fun clearMicTeaching() = viewModelScope.launch { settings.clearMicTeaching() }
+
+    /** Resets all app settings, presets, mic teaching, and routing to first-launch defaults. */
+    fun resetAllSettings(onDone: () -> Unit = {}) = viewModelScope.launch {
+        settings.resetAll()
+        store.clearAll()
+        router.selectInput(-1)
+        router.selectOutput(-1)
+        lastInputId = null
+        MonitorState.params.value = AudioParams.HARAMAIN
+        _activePreset.value = PresetKind.HARAMAIN
+        onDone()
+    }
     val selectedInputId: StateFlow<Int> = router.selectedInputId
     val selectedOutputId: StateFlow<Int> = router.selectedOutputId
 

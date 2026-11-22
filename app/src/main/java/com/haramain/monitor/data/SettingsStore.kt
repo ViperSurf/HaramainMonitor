@@ -14,6 +14,7 @@ import java.security.MessageDigest
 private val Context.settingsDataStore by preferencesDataStore(name = "haramain_settings")
 
 enum class ThemeMode { SYSTEM, DARK, LIGHT }
+enum class ThemePalette(val label: String) { STUDIO("Studio Orange"), HARAMAIN("Haramain Emerald") }
 
 /** App-level settings: theme, settings lock (+ optional PIN), resume behavior. */
 class SettingsStore(private val context: Context) {
@@ -21,6 +22,10 @@ class SettingsStore(private val context: Context) {
     val themeMode: Flow<ThemeMode> = context.settingsDataStore.data.map { prefs ->
         runCatching { ThemeMode.valueOf(prefs[THEME] ?: ThemeMode.SYSTEM.name) }
             .getOrDefault(ThemeMode.SYSTEM)
+    }
+    val themePalette: Flow<ThemePalette> = context.settingsDataStore.data.map { prefs ->
+        runCatching { ThemePalette.valueOf(prefs[THEME_PALETTE] ?: ThemePalette.STUDIO.name) }
+            .getOrDefault(ThemePalette.STUDIO)
     }
     val settingsLocked: Flow<Boolean> =
         context.settingsDataStore.data.map { it[LOCKED] ?: false }
@@ -270,6 +275,10 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.edit { it[THEME] = mode.name }
     }
 
+    suspend fun setThemePalette(palette: ThemePalette) {
+        context.settingsDataStore.edit { it[THEME_PALETTE] = palette.name }
+    }
+
     suspend fun setLocked(locked: Boolean) {
         context.settingsDataStore.edit { it[LOCKED] = locked }
     }
@@ -293,6 +302,11 @@ class SettingsStore(private val context: Context) {
         context.settingsDataStore.edit { it[WAS_RUNNING] = running }
     }
 
+    /** Clears all persisted app preferences, mic teaching, PIN, and practice log. */
+    suspend fun resetAll() {
+        context.settingsDataStore.edit { it.clear() }
+    }
+
     private fun hashPin(pin: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(pin.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }
@@ -300,6 +314,7 @@ class SettingsStore(private val context: Context) {
 
     private companion object {
         val THEME = stringPreferencesKey("theme_mode")
+        val THEME_PALETTE = stringPreferencesKey("theme_palette")
         val LOCKED = booleanPreferencesKey("settings_locked")
         val PIN_HASH = stringPreferencesKey("lock_pin_hash")
         val RESUME = booleanPreferencesKey("resume_on_launch")

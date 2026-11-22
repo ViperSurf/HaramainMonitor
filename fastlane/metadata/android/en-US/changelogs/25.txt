@@ -1,7 +1,6 @@
-v3.7:
-- Fixed Feedback Guard audio feed when Voice Steadiness is off
-- Fixed Lead (Imam) preset chip highlighting
-- Preserved Bluetooth 2-burst buffer floor on buffer mode changes
-- Fixed false disconnect stop when manually switching back to System Default
-- Fixed dark-mode Surface contrast in Recordings Library
+v4.0:
+- Material 3 redesign with 3-accent Studio Orange (default) & Haramain Emerald palettes + pure OLED black dark mode
+- 3-tab Bottom Navigation (Monitor / Sound / Settings), Top App Bar overflow menu, and Library search + kebab menu
+- Added About & Support section (diagnostics, changelog, FAQ, bug/feature templates, licenses, privacy) and Reset all settings
+- Fixed Feedback Guard audio feed when Voice Steadiness is off, Lead (Imam) preset highlight, Bluetooth 2-burst floor, and false disconnect stops
 - Added automated C++ DSP + Kotlin JVM regression tests and store metadata
