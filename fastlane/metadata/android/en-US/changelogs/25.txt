@@ -1,6 +1,6 @@
 v4.0:
-- Material 3 redesign with 3-accent Studio Orange (default) & Haramain Emerald palettes + pure OLED black dark mode
-- 3-tab Bottom Navigation (Monitor / Sound / Settings), Top App Bar overflow menu, and Library search + kebab menu
-- Added About & Support section (diagnostics, changelog, FAQ, bug/feature templates, licenses, privacy) and Reset all settings
-- Fixed Feedback Guard audio feed when Voice Steadiness is off, Lead (Imam) preset highlight, Bluetooth 2-burst floor, and false disconnect stops
-- Added automated C++ DSP + Kotlin JVM regression tests and store metadata
+- Material 3 redesign with Studio Orange & Haramain Emerald palettes + OLED dark mode
+- 3-tab Bottom Navigation (Monitor / Sound / Settings) and Library search/menu
+- About & Support section (diagnostics, changelog, FAQ, privacy) + Reset all settings
+- Fixed Feedback Guard feed, Lead (Imam) preset highlight, Bluetooth floor, and false disconnect stops
+- Added C++ DSP + Kotlin JVM regression tests and F-Droid metadata

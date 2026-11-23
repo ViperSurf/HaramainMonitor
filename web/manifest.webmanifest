@@ -1,0 +1,19 @@
+{
+  "name": "Haramain Monitor",
+  "short_name": "Haramain",
+  "description": "Offline-first live microphone monitor & vocal reverb powered by the C++17 Haramain DSP chain in WebAssembly.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#09090b",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

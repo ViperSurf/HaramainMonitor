@@ -273,6 +273,15 @@ Every push to `main` triggers the **Build installable APK** workflow
    `android`), so there's no signature-mismatch uninstall. Never ship a
    store build with this key.
 
+## Web PWA (iOS, macOS, Windows, Linux & Android)
+
+Haramain Monitor also includes an **installable, offline-first Web PWA** under `web/` that compiles the exact same C++17 DSP chain (`app/src/main/cpp/dsp/`) to **WebAssembly** and runs it inside a Web Audio **`AudioWorklet`**:
+
+- **Features:** All 7 acoustic presets, full 9-stage DSP controls, Studio Orange & Haramain Emerald OLED themes, Monitor Ears (Stereo / L Only / R Only), Mute, A/B Bypass, Anti-Howl Feedback Guard, JSON settings export/import, and 16-bit stereo WAV recording (processed or dry).
+- **GitHub Pages deployment:** `.github/workflows/deploy-pages.yml` installs Emscripten, builds `web/dsp.wasm`, and publishes `web/` automatically (enable **Settings → Pages → Source: GitHub Actions** in your repo).
+- **Local WASM build (optional):** requires Emscripten (`emsdk`): `./web/wasm/build.sh`.
+- **Browser trade-offs vs. native Android:** Browser `AudioWorklet` latency (~30–80 ms) is higher than native Oboe/AAudio (~10–25 ms), and mobile browsers pause audio when the screen locks.
+
 ## Build locally
 
 Gradle wrapper is included (Gradle 8.9, distribution checksum pinned).

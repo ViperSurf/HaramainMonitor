@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en" data-theme="orange">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#09090b" />
+  <title>Haramain Monitor — Web DSP</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <img src="icons/icon.svg" alt="" class="brand-icon" width="28" height="28" />
+        <div>
+          <h1>Haramain Monitor</h1>
+          <p class="subtitle" id="statusLine">Offline C++17 WASM DSP &bull; Ready</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="installBtn" class="chip-btn hidden" type="button">Install App</button>
+        <span id="latencyBadge" class="badge">Standby</span>
+      </div>
+    </header>
+
+    <div id="errorBanner" class="banner error hidden" role="alert"></div>
+
+    <main class="panels">
+      <!-- MONITOR TAB -->
+      <section id="panel-monitor" class="panel active" role="tabpanel" aria-labelledby="tab-monitor">
+        <div class="card hero-card">
+          <div class="hero-row">
+            <button id="toggleMonitorBtn" class="hero-btn" type="button" aria-pressed="false">
+              <span class="hero-dot"></span>
+              <span id="toggleMonitorLabel">Start Monitoring</span>
+            </button>
+          </div>
+
+          <div class="quick-controls">
+            <button id="muteBtn" class="pill-btn" type="button" aria-pressed="false">Mute</button>
+            <button id="bypassBtn" class="pill-btn" type="button" aria-pressed="false">A/B Bypass</button>
+            <div class="segmented" role="group" aria-label="Monitor Ears">
+              <button type="button" class="seg-btn active" data-ears="0">Stereo</button>
+              <button type="button" class="seg-btn" data-ears="1">L Only</button>
+              <button type="button" class="seg-btn" data-ears="2">R Only</button>
+            </div>
+          </div>
+
+          <div class="meters">
+            <div class="meter-row">
+              <span class="meter-label">Input</span>
+              <div class="meter-track"><div id="inMeter" class="meter-fill"></div></div>
+              <span id="inDb" class="meter-val">-&infin; dB</span>
+            </div>
+            <div class="meter-row">
+              <span class="meter-label">Output</span>
+              <div class="meter-track"><div id="outMeter" class="meter-fill accent"></div></div>
+              <span id="outDb" class="meter-val">-&infin; dB</span>
+            </div>
+            <div class="dsp-badges">
+              <span id="gateBadge" class="badge">Gate: Open</span>
+              <span id="nsBadge" class="badge">NS: Idle</span>
+              <span id="limBadge" class="badge">Limiter: Safe</span>
+              <span id="howlBadge" class="badge">Howl Guard: Ready</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>Acoustic Presets</h2>
+            <span id="activePresetLabel" class="muted">Masjid al-Haram</span>
+          </div>
+          <div id="presetGrid" class="preset-grid"></div>
+          <p id="presetDesc" class="muted small"></p>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>WAV Recorder</h2>
+            <label class="switch-row">
+              <input type="checkbox" id="recordDryToggle" />
+              <span>Dry Vocal</span>
+            </label>
+          </div>
+          <div class="rec-row">
+            <button id="recordBtn" class="pill-btn" type="button" disabled>Start Recording</button>
+            <span id="recordStatus" class="muted small">Start monitoring to record</span>
+          </div>
+          <div id="downloadArea" class="download-area hidden"></div>
+        </div>
+      </section>
+
+      <!-- SOUND TAB -->
+      <section id="panel-sound" class="panel" role="tabpanel" aria-labelledby="tab-sound">
+        <div class="card">
+          <h2>1. Input &amp; Noise Control</h2>
+          <div id="sliders-input" class="slider-list"></div>
+        </div>
+        <div class="card">
+          <h2>2. Dynamics &amp; De-Esser</h2>
+          <div id="sliders-dynamics" class="slider-list"></div>
+        </div>
+        <div class="card">
+          <h2>3. Tone Sculptor &amp; 5-Band Graphic EQ</h2>
+          <div id="sliders-eq" class="slider-list"></div>
+        </div>
+        <div class="card">
+          <h2>4. Haramain Reverb &amp; Space</h2>
+          <div id="sliders-reverb" class="slider-list"></div>
+        </div>
+        <div class="card">
+          <h2>5. Safety, Routing &amp; Anti-Howl</h2>
+          <div id="sliders-safety" class="slider-list"></div>
+        </div>
+      </section>
+
+      <!-- SETTINGS TAB -->
+      <section id="panel-settings" class="panel" role="tabpanel" aria-labelledby="tab-settings">
+        <div class="card">
+          <h2>Audio Devices</h2>
+          <div class="field">
+            <label for="inputSelect">Microphone Input</label>
+            <select id="inputSelect"><option value="">System Default</option></select>
+          </div>
+          <div class="field">
+            <label for="outputSelect">Output Headphones / Speaker</label>
+            <select id="outputSelect"><option value="">System Default</option></select>
+            <p id="sinkHint" class="muted small"></p>
+          </div>
+          <button id="refreshDevicesBtn" class="pill-btn" type="button">Refresh Devices</button>
+        </div>
+
+        <div class="card">
+          <h2>Appearance</h2>
+          <div class="segmented" role="group" aria-label="Color Accent">
+            <button type="button" class="seg-btn active" data-palette="orange">Studio Orange</button>
+            <button type="button" class="seg-btn" data-palette="emerald">Haramain Emerald</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Backup &amp; Reset</h2>
+          <div class="btn-row">
+            <button id="exportJsonBtn" class="pill-btn" type="button">Export JSON</button>
+            <label class="pill-btn file-label">
+              Import JSON
+              <input id="importJsonInput" type="file" accept="application/json" hidden />
+            </label>
+            <button id="resetAllBtn" class="pill-btn danger" type="button">Reset Defaults</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>About Web DSP</h2>
+          <p class="muted small">
+            Runs the exact same C++17 9-stage DSP chain (<code>DspChain.h</code> &amp; <code>HowlDetector.h</code>)
+            compiled to WebAssembly inside an <code>AudioWorklet</code>. 100% offline, zero telemetry, zero servers.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" role="tablist" aria-label="Main sections">
+      <button id="tab-monitor" class="nav-btn active" role="tab" aria-selected="true" aria-controls="panel-monitor" type="button">Monitor</button>
+      <button id="tab-sound" class="nav-btn" role="tab" aria-selected="false" aria-controls="panel-sound" type="button">Sound</button>
+      <button id="tab-settings" class="nav-btn" role="tab" aria-selected="false" aria-controls="panel-settings" type="button">Settings</button>
+    </nav>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

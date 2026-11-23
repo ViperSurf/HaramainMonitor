@@ -4,6 +4,17 @@ All notable changes to Haramain Monitor. Newest first. Through
 v4.0 this history lived at the bottom of the README; it moved
 here on 2026-11-16.
 
+## Unreleased — Web PWA (WASM + AudioWorklet) & F-Droid polish
+
+- **Cross-device Web PWA (`web/`):**
+  - Added an offline-first Progressive Web App (`web/index.html`, `web/styles.css`, `web/app.js`, `web/manifest.webmanifest`, `web/sw.js`) for iOS, iPadOS, macOS, Windows, Linux, and Android via GitHub Pages.
+  - Added a C++17 → WebAssembly bridge (`web/wasm/dsp_wasm.cpp`, `web/wasm/build.sh`) compiling `app/src/main/cpp/dsp/` (`DspChain.h`, `DspParams.h`, `HowlDetector.h`) into standalone `dsp.wasm` with zero Android/Oboe dependencies.
+  - Added `AudioWorkletProcessor` (`web/worklet/haramain-processor.js`) and Web Audio engine (`web/js/audio-engine.js`, `web/js/presets.js`) supporting all 7 built-in presets, 9-stage DSP sliders, Monitor Ears (Stereo / L Only / R Only), Mute, A/B Bypass, Anti-Howl Feedback Guard, input/output device selection (`setSinkId` where supported), JSON settings backup, and 16-bit stereo WAV recording (processed or dry).
+  - Added GitHub Pages deployment workflow (`.github/workflows/deploy-pages.yml`) to compile `dsp.wasm` with Emscripten and publish `web/` automatically on push to `main`.
+- **F-Droid & Release Build Polish:**
+  - Enabled R8 code shrinking and resource shrinking (`isMinifyEnabled = true`, `isShrinkResources = true`) for `release` builds in `app/build.gradle.kts`.
+  - Trimmed Fastlane changelog `fastlane/metadata/android/en-US/changelogs/25.txt` under F-Droid's 500-character limit.
+
 ## v4.0 — Material 3 redesign, 3-accent palettes, About & Support, reliability & tests
 
 - **Bug fix (Feedback Guard):** `AudioEngine` now feeds `mPitchRing`

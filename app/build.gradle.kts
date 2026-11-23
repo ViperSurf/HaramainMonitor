@@ -55,11 +55,14 @@ android {
 
     buildTypes {
         release {
-            // v2.7: dev-latest ships THIS build. A non-debuggable build is
-            // dramatically smoother for Compose UI than the debug build
-            // (no JDWP, full ART optimization). Minify stays OFF for now:
-            // the JNI surface makes R8 keep-rules a separate careful step.
-            isMinifyEnabled = false
+            // Non-debuggable + R8 shrinking/obfuscation keeps Compose smooth
+            // and minimizes APK size (required by F-Droid's R8 check).
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             signingConfig = when {
                 signingConfigs.findByName("releaseEnv") != null -> signingConfigs.getByName("releaseEnv")
                 project.hasProperty("devSigning") && signingConfigs.findByName("devDebug") != null ->
