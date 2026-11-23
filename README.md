@@ -275,6 +275,8 @@ Every push to `main` triggers the **Build installable APK** workflow
 
 ## Web PWA (iOS, macOS, Windows, Linux & Android)
 
+**Live Web App:** https://vipersurf.github.io/HaramainMonitor/
+
 Haramain Monitor also includes an **installable, offline-first Web PWA** under `web/` that compiles the exact same C++17 DSP chain (`app/src/main/cpp/dsp/`) to **WebAssembly** and runs it inside a Web Audio **`AudioWorklet`**:
 
 - **Features:** All 7 acoustic presets, full 9-stage DSP controls, Studio Orange & Haramain Emerald OLED themes, Monitor Ears (Stereo / L Only / R Only), Mute, A/B Bypass, Anti-Howl Feedback Guard, JSON settings export/import, and 16-bit stereo WAV recording (processed or dry).
